@@ -1,14 +1,14 @@
 // src/context/AuthContext.js
 import React, { createContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { 
-  onAuthStateChanged, 
-  signOut, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  sendPasswordResetEmail, 
+import {
+  onAuthStateChanged,
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
-  getAuth 
+  getAuth
 } from "firebase/auth";
 import { auth as firebaseAuth } from "../services/firebaseConfig";
 
@@ -50,25 +50,25 @@ export const AuthProvider = ({ children }) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName });
-      setUser(userCredential.user);
-      setGuestMode(false);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.log("🔥 Lỗi đăng ký:", error.code);
+      return { success: false, errorCode: error.code }; // ✅ thêm dòng này
     }
   };
+
 
   // Đăng nhập với email/mật khẩu
   const signInWithEmail = async (email, password) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      setUser(userCredential.user);
-      setGuestMode(false);
+      await signInWithEmailAndPassword(auth, email, password);
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.log("🔥 Lỗi đăng nhập:", error.code);
+      return { success: false, errorCode: error.code }; // ✅ TRẢ RA errorCode đúng
     }
   };
+
 
   // Chế độ khách (dữ liệu lưu cục bộ)
   const signInAsGuest = async (guestName = "Khách") => {
@@ -98,9 +98,9 @@ export const AuthProvider = ({ children }) => {
         handleCodeInApp: false,
       });
       console.log("✅ Password reset email sent");
-      return { 
-        success: true, 
-        message: "Email đặt lại mật khẩu đã được gửi! Vui lòng kiểm tra thư rác nếu không thấy." 
+      return {
+        success: true,
+        message: "Email đặt lại mật khẩu đã được gửi! Vui lòng kiểm tra thư rác nếu không thấy."
       };
     } catch (error) {
       console.error("❌ Reset password error:", error);

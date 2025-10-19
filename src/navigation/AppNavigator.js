@@ -13,6 +13,10 @@ import HomeScreen from "../screens/HomeScreen";
 import AQIScreen from "../screens/AQIScreen";
 import ReportScreen from "../screens/ReportScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+// ✅ THÊM 3 DÒNG NÀY
+import EditProfileScreen from "../screens/EditProfileScreen";
+import ReportHistoryScreen from "../screens/ReportHistoryScreen";
+import ChatHistoryScreen from "../screens/ChatHistoryScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -76,11 +80,51 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator>
         {user ? (
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Group>
+            <Stack.Screen 
+              name="MainTabs" 
+              component={MainTabs}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="EditProfile" 
+              component={EditProfileScreen}
+              options={{ 
+                title: "Chỉnh sửa hồ sơ",
+                headerStyle: { backgroundColor: "#fff" },
+                headerTintColor: "#2e7d32",
+                headerTitleStyle: { fontWeight: "bold" },
+              }}
+            />
+            <Stack.Screen 
+              name="ReportHistory" 
+              component={ReportHistoryScreen}
+              options={{ 
+                title: "Lịch sử báo cáo",
+                headerStyle: { backgroundColor: "#fff" },
+                headerTintColor: "#2e7d32",
+                headerTitleStyle: { fontWeight: "bold" },
+              }}
+            />
+            <Stack.Screen 
+              name="ChatHistory" 
+              component={ChatHistoryScreen}
+              options={{ 
+                title: "Lịch sử chat",
+                headerStyle: { backgroundColor: "#fff" },
+                headerTintColor: "#2e7d32",
+                headerTitleStyle: { fontWeight: "bold" },
+              }}
+            />
+          </Stack.Group>
         ) : (
-          <Stack.Screen name="Auth" component={AuthScreen} />
+          <Stack.Screen 
+            name="Auth" 
+            component={AuthScreen}
+            options={{ headerShown: false }}
+          />
         )}
       </Stack.Navigator>
     </NavigationContainer>

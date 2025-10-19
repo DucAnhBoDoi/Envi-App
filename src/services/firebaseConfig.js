@@ -10,7 +10,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyDrOBsW3ej7grPdQOySWet3hzv5kMsfT8g",
     authDomain: "envi-app-fe11b.firebaseapp.com",
     projectId: "envi-app-fe11b",
-    storageBucket: "envi-app-fe11b.firebasestorage.app",
+    storageBucket: "envi-app-fe11b.appspot.com",
     messagingSenderId: "909703253627",
     appId: "1:909703253627:web:24aa93dd898d1927591cde",
 };

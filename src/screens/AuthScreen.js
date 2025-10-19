@@ -16,6 +16,14 @@ import { AuthContext } from "../context/AuthContext";
 // 🔹 Hàm chuyển lỗi Firebase sang tiếng Việt
 const getFirebaseErrorMessage = (errorCode) => {
   switch (errorCode) {
+    case "auth/invalid-email":
+      return "Địa chỉ email không hợp lệ.";
+    case "auth/missing-email":
+      return "Vui lòng nhập email.";
+    case "auth/missing-password":
+      return "Vui lòng nhập mật khẩu.";
+    case "auth/weak-password":
+      return "Mật khẩu quá yếu. Vui lòng chọn mật khẩu mạnh hơn (ít nhất 6 ký tự).";
     case "auth/email-already-in-use":
       return "Email này đã được sử dụng. Vui lòng đăng nhập hoặc chọn email khác.";
     case "auth/invalid-credential":
@@ -23,10 +31,10 @@ const getFirebaseErrorMessage = (errorCode) => {
       return "Mật khẩu không đúng. Vui lòng thử lại.";
     case "auth/user-not-found":
       return "Tài khoản không tồn tại. Vui lòng đăng ký trước.";
-    case "auth/invalid-email":
-      return "Địa chỉ email không hợp lệ.";
+    case "auth/too-many-requests":
+      return "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau.";
     case "auth/network-request-failed":
-      return "Không thể kết nối đến máy chủ. Kiểm tra mạng của bạn.";
+      return "Không thể kết nối đến máy chủ. Kiểm tra lại kết nối mạng của bạn.";
     default:
       return "Đã xảy ra lỗi. Vui lòng thử lại sau.";
   }
@@ -46,21 +54,16 @@ export default function AuthScreen({ navigation }) {
   const [displayName, setDisplayName] = useState("");
 
   const handleSignUp = async () => {
-    if (!email || !password || !displayName) {
-      Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin");
-      return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert("Lỗi", "Mật khẩu không khớp");
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert("Lỗi", "Mật khẩu phải ít nhất 6 ký tự");
-      return;
-    }
+    if (!email) return Alert.alert("Lỗi", "Vui lòng nhập email để đăng ký.");
+    if (!password) return Alert.alert("Lỗi", "Vui lòng nhập mật khẩu.");
+    if (!displayName) return Alert.alert("Lỗi", "Vui lòng nhập tên hiển thị.");
+    if (password !== confirmPassword)
+      return Alert.alert("Lỗi", "Mật khẩu xác nhận không khớp.");
+    if (password.length < 6)
+      return Alert.alert("Lỗi", "Mật khẩu phải ít nhất 6 ký tự.");
 
     setLoading(true);
-    const result = await signUpWithEmail(email, password, displayName);
+    const result = await signUpWithEmail(email.trim(), password, displayName);
     setLoading(false);
 
     if (result.success) {
@@ -71,33 +74,30 @@ export default function AuthScreen({ navigation }) {
       setConfirmPassword("");
       setDisplayName("");
     } else {
-      const message = getFirebaseErrorMessage(result.errorCode || result.error);
-      Alert.alert("Lỗi", message);
+      Alert.alert("Lỗi", getFirebaseErrorMessage(result.errorCode || result.error));
     }
   };
 
   const handleSignIn = async () => {
-    if (!email || !password) {
-      Alert.alert("Lỗi", "Vui lòng điền email và mật khẩu");
-      return;
-    }
+    if (!email) return Alert.alert("Lỗi", "Vui lòng nhập email để đăng nhập.");
+    if (!password) return Alert.alert("Lỗi", "Vui lòng nhập mật khẩu.");
 
     setLoading(true);
-    const result = await signInWithEmail(email, password);
+    const result = await signInWithEmail(email.trim(), password);
     setLoading(false);
 
-    if (!result.success) {
-      const message = getFirebaseErrorMessage(result.errorCode || result.error);
-      Alert.alert("Lỗi", message);
+    if (result.success) {
+      Alert.alert("Thành công", "Đăng nhập thành công!");
+      // Reset form
+      setEmail("");
+      setPassword("");
+    } else {
+      Alert.alert("Lỗi", getFirebaseErrorMessage(result.errorCode || result.error));
     }
   };
 
   const handleResetPassword = async () => {
-    if (!email) {
-      Alert.alert("Lỗi", "Vui lòng nhập email");
-      return;
-    }
-
+    if (!email) return Alert.alert("Lỗi", "Vui lòng nhập email");
     setLoading(true);
     const result = await resetPassword(email);
     setLoading(false);
@@ -107,8 +107,7 @@ export default function AuthScreen({ navigation }) {
       setIsForgotPassword(false);
       setEmail("");
     } else {
-      const message = getFirebaseErrorMessage(result.errorCode || result.error);
-      Alert.alert("Lỗi", message);
+      Alert.alert("Lỗi", getFirebaseErrorMessage(result.errorCode || result.error));
     }
   };
 
@@ -116,10 +115,8 @@ export default function AuthScreen({ navigation }) {
     setLoading(true);
     const result = await signInAsGuest("Khách");
     setLoading(false);
-
     if (!result.success) {
-      const message = getFirebaseErrorMessage(result.errorCode || result.error);
-      Alert.alert("Lỗi", message);
+      Alert.alert("Lỗi", getFirebaseErrorMessage(result.errorCode || result.error));
     }
   };
 
@@ -226,20 +223,12 @@ export default function AuthScreen({ navigation }) {
         <View style={styles.dividerLine} />
       </View>
 
-      {/* --- Nút đăng nhập có icon --- */}
-      <TouchableOpacity style={[styles.oauthBtn, { borderColor: "#1877F2" }]}>
-        <Ionicons name="logo-facebook" size={20} color="#1877F2" style={styles.oauthIcon} />
-        <Text style={styles.oauthBtnText}>Đăng nhập với Facebook</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={[styles.oauthBtn, { borderColor: "#DB4437" }]}>
-        <Ionicons name="logo-google" size={20} color="#DB4437" style={styles.oauthIcon} />
-        <Text style={styles.oauthBtnText}>Đăng nhập với Google</Text>
-      </TouchableOpacity>
-
+      {/* ✅ Chỉ giữ nút Khách */}
       <TouchableOpacity style={[styles.oauthBtn, { borderColor: "#999" }]} onPress={handleGuestMode}>
         <Ionicons name="person-circle-outline" size={20} color="#555" style={styles.oauthIcon} />
-        <Text style={styles.oauthBtnText}>Tiếp tục với tư cách khách</Text>
+        <View style={styles.oauthTextContainer}>
+          <Text style={styles.oauthBtnText}>Tiếp tục với tư cách khách</Text>
+        </View>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.toggleBtn} onPress={() => setIsSignUp(!isSignUp)}>
@@ -252,46 +241,14 @@ export default function AuthScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  scrollContent: {
-    padding: 20,
-    justifyContent: "center",
-    minHeight: "100%",
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#2e7d32",
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-  logo: {
-    fontSize: 60,
-    marginBottom: 10,
-  },
-  appName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#2e7d32",
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 20,
-    textAlign: "center",
-  },
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  scrollContent: { padding: 20, justifyContent: "center", minHeight: "100%" },
+  centerContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f5f5" },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#2e7d32" },
+  logoContainer: { alignItems: "center", marginBottom: 30 },
+  logo: { fontSize: 60, marginBottom: 10 },
+  appName: { fontSize: 24, fontWeight: "bold", color: "#2e7d32" },
+  title: { fontSize: 22, fontWeight: "bold", color: "#333", marginBottom: 20, textAlign: "center" },
   input: {
     backgroundColor: "#fff",
     borderWidth: 1,
@@ -309,11 +266,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  primaryBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
+  primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   secondaryBtn: {
     backgroundColor: "#fff",
     padding: 14,
@@ -323,60 +276,27 @@ const styles = StyleSheet.create({
     borderColor: "#2e7d32",
     marginTop: 12,
   },
-  secondaryBtnText: {
-    color: "#2e7d32",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  forgotPasswordBtn: {
-    alignItems: "center",
-    marginTop: 12,
-  },
-  forgotPasswordText: {
-    color: "#2e7d32",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#ddd",
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: "#999",
-    fontSize: 14,
-  },
+  secondaryBtnText: { color: "#2e7d32", fontSize: 16, fontWeight: "bold" },
+  forgotPasswordBtn: { alignItems: "center", marginTop: 12 },
+  forgotPasswordText: { color: "#2e7d32", fontSize: 14, fontWeight: "600" },
+  divider: { flexDirection: "row", alignItems: "center", marginVertical: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#ddd" },
+  dividerText: { marginHorizontal: 10, color: "#999", fontSize: 14 },
   oauthBtn: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     backgroundColor: "#fff",
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 10,
+    position: "relative",
   },
-  oauthIcon: {
-    marginRight: 8,
-  },
-  oauthBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-  },
-  toggleBtn: {
-    alignItems: "center",
-    marginTop: 15,
-  },
-  toggleBtnText: {
-    color: "#2e7d32",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  oauthIcon: { width: 30, textAlign: "center", marginRight: 10 },
+  oauthTextContainer: { flex: 1, alignItems: "center" },
+  oauthBtnText: { fontSize: 14, fontWeight: "600", color: "#333" },
+  toggleBtn: { alignItems: "center", marginTop: 15 },
+  toggleBtnText: { color: "#2e7d32", fontSize: 14, fontWeight: "600" },
 });
