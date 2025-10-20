@@ -5,7 +5,7 @@ import AsyncStorageRN from "@react-native-async-storage/async-storage";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// 🔒 Import các biến môi trường
+// Import các biến môi trường
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -15,7 +15,7 @@ import {
   FIREBASE_APP_ID,
 } from "@env";
 
-// ⚙️ Cấu hình Firebase
+// Cấu hình Firebase
 const firebaseConfig = {
   apiKey: FIREBASE_API_KEY,
   authDomain: FIREBASE_AUTH_DOMAIN,
@@ -25,7 +25,7 @@ const firebaseConfig = {
   appId: FIREBASE_APP_ID,
 };
 
-// 🚀 Khởi tạo Firebase
+// Khởi tạo Firebase
 const app = initializeApp(firebaseConfig);
 
 export const auth = initializeAuth(app, {
