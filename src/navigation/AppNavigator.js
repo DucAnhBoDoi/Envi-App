@@ -11,6 +11,7 @@ import { AuthContext } from "../context/AuthContext";
 import AuthScreen from "../screens/AuthScreen";
 import HomeScreen from "../screens/HomeScreen";
 import AQIScreen from "../screens/AQIScreen";
+import WasteGuideScreen from "../screens/WasteGuideScreen";
 import ReportScreen from "../screens/ReportScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 // ✅ THÊM 3 DÒNG NÀY
@@ -30,6 +31,7 @@ function MainTabs() {
           let iconName;
           if (route.name === "Trang chủ") iconName = "home";
           else if (route.name === "Chất lượng không khí") iconName = "leaf";
+          else if (route.name === "Xử lý rác") iconName = "reload-circle";
           else if (route.name === "Báo cáo") iconName = "alert-circle";
           else if (route.name === "Tài khoản") iconName = "person";
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -53,6 +55,7 @@ function MainTabs() {
         component={AQIScreen}
         options={{ title: "AQI" }}
       />
+      <Tab.Screen name="Xử lý rác" component={WasteGuideScreen} />
       <Tab.Screen
         name="Báo cáo"
         component={ReportScreen}
@@ -83,35 +86,35 @@ export default function AppNavigator() {
       <Stack.Navigator>
         {user ? (
           <Stack.Group>
-            <Stack.Screen 
-              name="MainTabs" 
+            <Stack.Screen
+              name="MainTabs"
               component={MainTabs}
               options={{ headerShown: false }}
             />
-            <Stack.Screen 
-              name="EditProfile" 
+            <Stack.Screen
+              name="EditProfile"
               component={EditProfileScreen}
-              options={{ 
+              options={{
                 title: "Chỉnh sửa hồ sơ",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
               }}
             />
-            <Stack.Screen 
-              name="ReportHistory" 
+            <Stack.Screen
+              name="ReportHistory"
               component={ReportHistoryScreen}
-              options={{ 
+              options={{
                 title: "Lịch sử báo cáo",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
               }}
             />
-            <Stack.Screen 
-              name="ChatHistory" 
+            <Stack.Screen
+              name="ChatHistory"
               component={ChatHistoryScreen}
-              options={{ 
+              options={{
                 title: "Lịch sử chat",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
@@ -120,8 +123,8 @@ export default function AppNavigator() {
             />
           </Stack.Group>
         ) : (
-          <Stack.Screen 
-            name="Auth" 
+          <Stack.Screen
+            name="Auth"
             component={AuthScreen}
             options={{ headerShown: false }}
           />

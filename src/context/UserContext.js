@@ -16,7 +16,7 @@ export const UserProvider = ({ children }) => {
     email: "",
     phone: "",
     address: "",
-    defaultRegion: "Hồ Chí Minh", // Khu vực mặc định
+    defaultRegion: "Hồ Chí Minh",
     bio: "",
   });
   
@@ -24,16 +24,44 @@ export const UserProvider = ({ children }) => {
   const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // 🔹 AQI threshold (1-5)
+  const [aqiThreshold, setAqiThresholdState] = useState(3);
+
   // Load profile khi user thay đổi
   useEffect(() => {
     if (user) {
       loadUserProfile();
       loadReportHistory();
       loadChatHistory();
+      loadAqiThreshold();
     } else {
       clearProfile();
     }
   }, [user]);
+
+  // 🔹 Load ngưỡng AQI từ storage
+  const loadAqiThreshold = async () => {
+    try {
+      const key = guestMode ? "guestAqiThreshold" : `aqiThreshold_${user.uid}`;
+      const saved = await AsyncStorage.getItem(key);
+      if (saved) {
+        setAqiThresholdState(parseInt(saved));
+      }
+    } catch (error) {
+      console.error("❌ Lỗi load AQI threshold:", error);
+    }
+  };
+
+  // 🔹 Wrapper để lưu ngưỡng AQI khi thay đổi
+  const setAqiThreshold = async (value) => {
+    try {
+      setAqiThresholdState(value);
+      const key = guestMode ? "guestAqiThreshold" : `aqiThreshold_${user.uid}`;
+      await AsyncStorage.setItem(key, value.toString());
+    } catch (error) {
+      console.error("❌ Lỗi lưu AQI threshold:", error);
+    }
+  };
 
   // 🔹 Load thông tin profile
   const loadUserProfile = async () => {
@@ -41,7 +69,6 @@ export const UserProvider = ({ children }) => {
       setLoading(true);
       
       if (guestMode) {
-        // Khách: Load từ AsyncStorage
         const guestProfile = await AsyncStorage.getItem("guestProfile");
         if (guestProfile) {
           setUserProfile(JSON.parse(guestProfile));
@@ -57,14 +84,12 @@ export const UserProvider = ({ children }) => {
           });
         }
       } else {
-        // User đăng nhập: Load từ Firestore
         const docRef = doc(db, "users", user.uid);
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
           setUserProfile(docSnap.data());
         } else {
-          // Tạo profile mới từ thông tin Firebase Auth
           const newProfile = {
             displayName: user.displayName || "Người dùng",
             photoURL: user.photoURL || "",
@@ -92,10 +117,8 @@ export const UserProvider = ({ children }) => {
       const newProfile = { ...userProfile, ...updates };
       
       if (guestMode) {
-        // Khách: Lưu vào AsyncStorage
         await AsyncStorage.setItem("guestProfile", JSON.stringify(newProfile));
       } else {
-        // User: Lưu vào Firestore
         const docRef = doc(db, "users", user.uid);
         await setDoc(docRef, newProfile, { merge: true });
       }
@@ -119,7 +142,6 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // 🔹 Thêm báo cáo vào lịch sử
   const addReportToHistory = async (report) => {
     try {
       const newReport = {
@@ -127,13 +149,10 @@ export const UserProvider = ({ children }) => {
         ...report,
         timestamp: new Date().toISOString(),
       };
-      
-      const newHistory = [newReport, ...reportHistory].slice(0, 50); // Giữ tối đa 50 báo cáo
+      const newHistory = [newReport, ...reportHistory].slice(0, 50);
       setReportHistory(newHistory);
-      
       const key = guestMode ? "guestReportHistory" : `reportHistory_${user.uid}`;
       await AsyncStorage.setItem(key, JSON.stringify(newHistory));
-      
       return { success: true };
     } catch (error) {
       console.error("❌ Lỗi thêm report:", error);
@@ -141,7 +160,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // 🔹 Load lịch sử chat với chatbot
+  // 🔹 Load lịch sử chat
   const loadChatHistory = async () => {
     try {
       const key = guestMode ? "guestChatHistory" : `chatHistory_${user.uid}`;
@@ -152,7 +171,6 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // 🔹 Thêm tin nhắn chat vào lịch sử
   const addChatToHistory = async (message) => {
     try {
       const newMessage = {
@@ -160,13 +178,10 @@ export const UserProvider = ({ children }) => {
         ...message,
         timestamp: new Date().toISOString(),
       };
-      
-      const newHistory = [newMessage, ...chatHistory].slice(0, 100); // Giữ tối đa 100 tin nhắn
+      const newHistory = [newMessage, ...chatHistory].slice(0, 100);
       setChatHistory(newHistory);
-      
       const key = guestMode ? "guestChatHistory" : `chatHistory_${user.uid}`;
       await AsyncStorage.setItem(key, JSON.stringify(newHistory));
-      
       return { success: true };
     } catch (error) {
       console.error("❌ Lỗi thêm chat:", error);
@@ -174,7 +189,6 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // 🔹 Xóa lịch sử
   const clearReportHistory = async () => {
     try {
       const key = guestMode ? "guestReportHistory" : `reportHistory_${user.uid}`;
@@ -197,7 +211,6 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // 🔹 Clear tất cả khi logout
   const clearProfile = () => {
     setUserProfile({
       displayName: "",
@@ -210,6 +223,7 @@ export const UserProvider = ({ children }) => {
     });
     setReportHistory([]);
     setChatHistory([]);
+    setAqiThresholdState(3); // reset threshold
   };
 
   return (
@@ -225,6 +239,9 @@ export const UserProvider = ({ children }) => {
         clearReportHistory,
         clearChatHistory,
         loadUserProfile,
+        // 🔹 AQI
+        aqiThreshold,
+        setAqiThreshold,
       }}
     >
       {children}

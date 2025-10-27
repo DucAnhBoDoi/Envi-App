@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
+import { useGoogleAuth } from "../services/oauthService";
 
 // 🔹 Hàm chuyển lỗi Firebase sang tiếng Việt
 const getFirebaseErrorMessage = (errorCode) => {
@@ -52,6 +53,7 @@ export default function AuthScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const { handleGoogleSignIn } = useGoogleAuth();
 
   const handleSignUp = async () => {
     if (!email) return Alert.alert("Lỗi", "Vui lòng nhập email để đăng ký.");
@@ -222,6 +224,17 @@ export default function AuthScreen({ navigation }) {
         <Text style={styles.dividerText}>hoặc</Text>
         <View style={styles.dividerLine} />
       </View>
+      
+      {/* ✅ Chỉ giữ nút Google */}
+      <TouchableOpacity
+        style={[styles.oauthBtn, { borderColor: "#4285F4" }]}
+        onPress={handleGoogleSignIn}
+      >
+        <Ionicons name="logo-google" size={20} color="#4285F4" style={styles.oauthIcon} />
+        <View style={styles.oauthTextContainer}>
+          <Text style={styles.oauthBtnText}>Đăng nhập bằng Google</Text>
+        </View>
+      </TouchableOpacity>
 
       {/* ✅ Chỉ giữ nút Khách */}
       <TouchableOpacity style={[styles.oauthBtn, { borderColor: "#999" }]} onPress={handleGuestMode}>

@@ -2,10 +2,12 @@
   "expo": {
     "name": "envi-app",
     "slug": "envi-app",
+    "owner": "ducanhbodoi7204",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "enviapp",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
