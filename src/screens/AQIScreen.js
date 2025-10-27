@@ -16,8 +16,8 @@ import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../context/UserContext";
+import { OPENWEATHER_API_KEY } from "@env";
 
-const OPENWEATHER_API_KEY = "2a110f99ddf042dfdbd222451ed81f20";
 
 // ⚙️ Cấu hình hiển thị thông báo
 Notifications.setNotificationHandler({
