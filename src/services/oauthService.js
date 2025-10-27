@@ -6,7 +6,7 @@ import { auth } from "./firebaseConfig";
 
 WebBrowser.maybeCompleteAuthSession();
 
-export const useGoogleAuth = () => {
+export const useGoogleAuth = (onLoginSuccess) => {
   // 👉 Dùng link cố định cho app build thật (không còn bị lỗi SSL)
   const redirectUri = "https://auth.expo.dev/@ducanhbodoi7204/envi-app";
 
@@ -24,8 +24,12 @@ export const useGoogleAuth = () => {
       if (result?.type === "success") {
         const { id_token } = result.params;
         const credential = GoogleAuthProvider.credential(id_token);
-        await signInWithCredential(auth, credential);
+        const userCredential = await signInWithCredential(auth, credential);
         console.log("✅ Đăng nhập Firebase bằng Google thành công!");
+
+        if (onLoginSuccess) {
+          onLoginSuccess(userCredential.user);
+        }
       } else {
         console.log("⚠️ Hủy hoặc lỗi:", result);
       }
