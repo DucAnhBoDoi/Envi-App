@@ -226,6 +226,23 @@ export const UserProvider = ({ children }) => {
     setAqiThresholdState(3); // reset threshold
   };
 
+  // 🔹 Cập nhật trạng thái của một báo cáo
+  const updateReportStatus = async (reportId, newStatus) => {
+    try {
+      const updatedHistory = reportHistory.map((r) =>
+        r.id === reportId ? { ...r, status: newStatus } : r
+      );
+      setReportHistory(updatedHistory);
+
+      const key = guestMode ? "guestReportHistory" : `reportHistory_${user.uid}`;
+      await AsyncStorage.setItem(key, JSON.stringify(updatedHistory));
+      return { success: true };
+    } catch (error) {
+      console.error("❌ Lỗi cập nhật trạng thái báo cáo:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   return (
     <UserContext.Provider
       value={{
@@ -239,6 +256,7 @@ export const UserProvider = ({ children }) => {
         clearReportHistory,
         clearChatHistory,
         loadUserProfile,
+        updateReportStatus,
         // 🔹 AQI
         aqiThreshold,
         setAqiThreshold,
