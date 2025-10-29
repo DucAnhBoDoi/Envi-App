@@ -10,7 +10,9 @@ import {
   StatusBar,
   Image,
   TouchableOpacity,
+  LogBox,
 } from "react-native";
+import Constants from "expo-constants";
 import Slider from "@react-native-community/slider";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -19,7 +21,14 @@ import { UserContext } from "../context/UserContext";
 import { OPENWEATHER_API_KEY } from "@env";
 
 
-// ⚙️ Cấu hình hiển thị thông báo
+// Ẩn cảnh báo expo-notifications trong Expo Go
+LogBox.ignoreLogs([
+  "expo-notifications: Android Push notifications",
+  "`expo-notifications` functionality is not fully supported in Expo Go",
+]);
+
+
+// Cấu hình hiển thị thông báo
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -61,13 +70,19 @@ export default function AQIScreen() {
     if (location) fetchAQI(location.latitude, location.longitude);
   }, [location]);
 
-  // 🔔 Đăng ký quyền thông báo
+  // 🔔 Đăng ký quyền thông báo (chỉ chạy ngoài Expo Go)
   const registerForPushNotifications = async () => {
+    if (Constants.appOwnership === "expo") {
+      console.log("⚠️ Bỏ qua đăng ký push notification trong Expo Go");
+      return;
+    }
+
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Thông báo", "Hãy bật quyền thông báo để nhận cảnh báo AQI.");
       return;
     }
+
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("aqi-alerts", {
         name: "Cảnh báo AQI",
@@ -75,6 +90,7 @@ export default function AQIScreen() {
       });
     }
   };
+
 
   // 📍 Lấy vị trí + địa chỉ (Quận + Thành phố)
   const getLocation = async () => {
