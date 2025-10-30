@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { useGoogleAuth } from "../services/oauthService";
 
+//hehe hoang
 // 🔹 Hàm chuyển lỗi Firebase sang tiếng Việt
 const getFirebaseErrorMessage = (errorCode) => {
   switch (errorCode) {
