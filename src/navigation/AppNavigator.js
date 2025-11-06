@@ -14,10 +14,11 @@ import AQIScreen from "../screens/AQIScreen";
 import WasteGuideScreen from "../screens/WasteGuideScreen";
 import ReportScreen from "../screens/ReportScreen";
 import ProfileScreen from "../screens/ProfileScreen";
-// ✅ THÊM 3 DÒNG NÀY
 import EditProfileScreen from "../screens/EditProfileScreen";
 import ReportHistoryScreen from "../screens/ReportHistoryScreen";
 import ChatHistoryScreen from "../screens/ChatHistoryScreen";
+// ✅ THÊM CHATBOT SCREEN
+import ChatbotScreen from "../screens/ChatbotScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -33,6 +34,7 @@ function MainTabs() {
           else if (route.name === "Chất lượng không khí") iconName = "leaf";
           else if (route.name === "Xử lý rác") iconName = "reload-circle";
           else if (route.name === "Báo cáo") iconName = "alert-circle";
+          else if (route.name === "Chatbot") iconName = "chatbubbles"; // ✅ Icon chatbot
           else if (route.name === "Tài khoản") iconName = "person";
           return <Ionicons name={iconName} size={size} color={color} />;
         },
@@ -42,6 +44,12 @@ function MainTabs() {
           backgroundColor: "#fff",
           borderTopWidth: 1,
           borderTopColor: "#f0f0f0",
+          paddingBottom: 5,
+          height: 60,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "500",
         },
       })}
     >
@@ -55,11 +63,24 @@ function MainTabs() {
         component={AQIScreen}
         options={{ title: "AQI" }}
       />
-      <Tab.Screen name="Xử lý rác" component={WasteGuideScreen} />
+      <Tab.Screen 
+        name="Xử lý rác" 
+        component={WasteGuideScreen}
+        options={{ title: "Xử lý rác" }}
+      />
       <Tab.Screen
         name="Báo cáo"
         component={ReportScreen}
         options={{ title: "Báo cáo" }}
+      />
+      {/* ✅ TAB CHATBOT - GIỮA BÁO CÁO VÀ TÀI KHOẢN */}
+      <Tab.Screen
+        name="Chatbot"
+        component={ChatbotScreen}
+        options={{ 
+          title: "Chatbot",
+          tabBarBadge: null, // Có thể thêm badge nếu cần
+        }}
       />
       <Tab.Screen
         name="Tài khoản"
