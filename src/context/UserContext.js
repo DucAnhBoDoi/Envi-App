@@ -160,28 +160,75 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // 🔹 Load lịch sử chat
+  // 🔥 FIX: Load lịch sử chat - đọc trực tiếp từ AsyncStorage
   const loadChatHistory = async () => {
     try {
+      if (!user) {
+        setChatHistory([]);
+        return;
+      }
+
       const key = guestMode ? "guestChatHistory" : `chatHistory_${user.uid}`;
       const history = await AsyncStorage.getItem(key);
-      setChatHistory(history ? JSON.parse(history) : []);
+      
+      console.log("📖 Load chat history from:", key);
+      console.log("📖 Data loaded:", history ? "Có dữ liệu" : "Trống");
+      
+      if (history) {
+        const parsed = JSON.parse(history);
+        console.log("📖 Số tin nhắn:", parsed.length);
+        
+        // Sắp xếp theo thời gian mới nhất trên đầu
+        const sorted = parsed.sort((a, b) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        setChatHistory(sorted);
+      } else {
+        setChatHistory([]);
+      }
     } catch (error) {
       console.error("❌ Lỗi load chat history:", error);
+      setChatHistory([]);
     }
   };
 
+  // 🔥 FIX: Thêm tin nhắn vào lịch sử chat
   const addChatToHistory = async (message) => {
     try {
+      if (!user) {
+        console.warn("⚠️ Không có user, không lưu chat");
+        return { success: false, error: "No user" };
+      }
+
       const newMessage = {
-        id: Date.now().toString(),
-        ...message,
-        timestamp: new Date().toISOString(),
+        id: message.id || Date.now().toString(),
+        sender: message.sender, // "user" hoặc "bot"
+        message: message.message,
+        timestamp: message.timestamp || new Date().toISOString(),
       };
-      const newHistory = [newMessage, ...chatHistory].slice(0, 100);
-      setChatHistory(newHistory);
+
       const key = guestMode ? "guestChatHistory" : `chatHistory_${user.uid}`;
+      
+      // 🔥 Đọc lại từ storage trước khi thêm (tránh mất dữ liệu)
+      const existingData = await AsyncStorage.getItem(key);
+      const existingHistory = existingData ? JSON.parse(existingData) : [];
+      
+      // 🔥 Thêm tin nhắn mới vào đầu
+      const newHistory = [newMessage, ...existingHistory].slice(0, 200); // Giới hạn 200 tin nhắn
+      
+      console.log("💾 Lưu tin nhắn:", {
+        sender: newMessage.sender,
+        messagePreview: newMessage.message.substring(0, 30),
+        totalMessages: newHistory.length,
+        key: key
+      });
+      
+      // 🔥 Lưu vào AsyncStorage
       await AsyncStorage.setItem(key, JSON.stringify(newHistory));
+      
+      // 🔥 Cập nhật state
+      setChatHistory(newHistory);
+      
       return { success: true };
     } catch (error) {
       console.error("❌ Lỗi thêm chat:", error);
@@ -189,6 +236,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  // 🔹 Xóa lịch sử báo cáo
   const clearReportHistory = async () => {
     try {
       const key = guestMode ? "guestReportHistory" : `reportHistory_${user.uid}`;
@@ -200,6 +248,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  // 🔹 Xóa lịch sử chat
   const clearChatHistory = async () => {
     try {
       const key = guestMode ? "guestChatHistory" : `chatHistory_${user.uid}`;
@@ -256,6 +305,7 @@ export const UserProvider = ({ children }) => {
         clearReportHistory,
         clearChatHistory,
         loadUserProfile,
+        loadChatHistory,
         updateReportStatus,
         // 🔹 AQI
         aqiThreshold,
