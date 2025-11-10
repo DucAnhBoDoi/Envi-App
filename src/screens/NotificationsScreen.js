@@ -1,3 +1,4 @@
+// src/screens/NotificationsScreen.js
 import React, { useState, useContext, useEffect } from "react";
 import {
   View,
@@ -5,11 +6,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Switch,
   Alert,
   RefreshControl,
   ActivityIndicator,
-  Platform,
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,8 +17,9 @@ import { AuthContext } from "../context/AuthContext";
 import { UserContext } from "../context/UserContext";
 import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
-// Cấu hình thông báo
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -34,57 +34,28 @@ export default function NotificationsScreen({ navigation }) {
 
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState({
-    campaigns: true,
-    recycling: true,
-    weather: true,
-    community: false,
-  });
   const [notifications, setNotifications] = useState([]);
   const [nextRecycleDay, setNextRecycleDay] = useState("");
 
-  // === DANH SÁCH CHIẾN DỊCH ===
   const campaigns = [
-    {
-      id: "1",
-      title: "Chiến dịch Làm sạch bãi biển",
-      date: "05/11/2025",
-      location: "Bãi biển Vũng Tàu",
-      icon: "water-outline",
-      color: "#03A9F4",
-    },
-    {
-      id: "2",
-      title: "Trồng cây xanh cùng thanh niên",
-      date: "12/11/2025",
-      location: "Công viên Tao Đàn, Q1",
-      icon: "leaf-outline",
-      color: "#4CAF50",
-    },
-    {
-      id: "3",
-      title: "Thu gom rác điện tử",
-      date: "20/11/2025",
-      location: "Siêu thị Metro An Phú",
-      icon: "hardware-chip-outline",
-      color: "#9C27B0",
-    },
+    { id: "1", title: "Chiến dịch Làm sạch bãi biển", date: "05/11/2025", location: "Bãi biển Vũng Tàu", icon: "water-outline", color: "#03A9F4" },
+    { id: "2", title: "Trồng cây xanh cùng thanh niên", date: "12/11/2025", location: "Công viên Tao Đàn, Q1", icon: "leaf-outline", color: "#4CAF50" },
+    { id: "3", title: "Thu gom rác điện tử", date: "20/11/2025", location: "Siêu thị Metro An Phú", icon: "hardware-chip-outline", color: "#9C27B0" },
   ];
 
-  // === LỊCH THÔNG BÁO ĐÃ LÊN LỊCH ===
-    const SCHEDULED_NOTIFICATIONS = [
-      {
-        triggerTime: new Date(2025, 10, 14, 8, 15, 0).getTime(), // 08:15 ngày 14/11/2025
-        data: {
-          type: "recycling",
-          icon: "reload-circle-outline",
-          color: "#4CAF50",
-          title: "Nhắc nhở: Chuẩn bị rác tái chế",
-          message: `Ngày mai (15/11/2025) là lịch thu gom rác tái chế tại ${userProfile?.defaultRegion || "khu vực của bạn"}.\n\nHãy phân loại và để trước 7h sáng!`,
-          read: false,
-        },
+  const SCHEDULED_NOTIFICATIONS = [
+    {
+      triggerTime: new Date(2025, 10, 15, 9, 0, 0).getTime(), // 15/11/2025 lúc 9:00 sáng
+      data: {
+        type: "campaign",
+        icon: "megaphone",
+        color: "#FF6B6B",
+        title: "Chiến dịch trồng cây xanh 2025",
+        message: `Tham gia trồng 1.000 cây tại công viên Lê Văn Tám, ${userProfile?.defaultRegion || "khu vực của bạn"} vào 07:00 Chủ nhật!`,
+        read: false,
       },
-    ];
+    },
+  ];
 
   useEffect(() => {
     initializeData();
@@ -94,56 +65,51 @@ export default function NotificationsScreen({ navigation }) {
 
   const initializeData = async () => {
     setLoading(true);
-    await loadSettings();
     await loadNotifications();
-    calculateNextRecycleDay();
+    setNextRecycleDay(new Date(2025, 10, 7).toLocaleDateString("vi-VN"));
     setLoading(false);
   };
 
-  // 1. ĐỔI NGÀY TRONG calculateNextRecycleDay
-const calculateNextRecycleDay = () => {
-  const recycleDay = new Date(2025, 10, 15); // 15/11/2025
-  setNextRecycleDay(recycleDay.toLocaleDateString("vi-VN"));
-};
-
-  const sendNotification = async (title, body) => {
+  const sendNotification = async (title, body, extraData = {}) => {
     await Notifications.scheduleNotificationAsync({
       content: { title, body },
       trigger: null,
     });
 
     const newNotif = {
-      id: Date.now(),
-      type: "recycling",
-      icon: "notifications",
-      color: "#4CAF50",
+      id: Date.now().toString(),
+      type: extraData.type || "recycling",
+      icon: extraData.icon || "notifications",
+      color: extraData.color || "#4CAF50",
       title,
       message: body,
       read: false,
     };
+
     const updated = [newNotif, ...notifications];
     setNotifications(updated);
     await saveNotifications(updated);
-
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert("Thành công", "Đã gửi thông báo!");
+    Alert.alert("Thành công", "Đã thêm thông báo!");
   };
 
   const checkAndAddScheduledNotifications = async () => {
     const now = Date.now();
-    const newNotifs = [...notifications];
     let hasNew = false;
+    const newNotifs = [...notifications];
 
-    SCHEDULED_NOTIFICATIONS.forEach((sched) => {
-      if (now >= sched.triggerTime && !newNotifs.some((n) => n.id === sched.triggerTime)) {
-        const newNotif = { id: sched.triggerTime, ...sched.data };
-        newNotifs.unshift(newNotif);
+    for (const sched of SCHEDULED_NOTIFICATIONS) {
+      if (now >= sched.triggerTime && !newNotifs.some(n => n.id === sched.triggerTime.toString())) {
+        newNotifs.unshift({
+          id: sched.triggerTime.toString(),
+          ...sched.data,
+        });
         hasNew = true;
       }
-    });
+    }
 
     if (hasNew) {
-      newNotifs.sort((a, b) => b.id - a.id);
+      newNotifs.sort((a, b) => Number(b.id) - Number(a.id));
       setNotifications(newNotifs);
       await saveNotifications(newNotifs);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -151,145 +117,79 @@ const calculateNextRecycleDay = () => {
   };
 
   const formatTime = (timestamp) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const minute = 60 * 1000;
-    const hour = minute * 60;
-    const day = hour * 24;
-
+    const diff = Date.now() - Number(timestamp);
+    const minute = 60 * 1000, hour = minute * 60, day = hour * 24;
     if (diff < minute) return "Vừa xong";
     if (diff < hour) return `${Math.floor(diff / minute)} phút trước`;
     if (diff < day) return `${Math.floor(diff / hour)} giờ trước`;
     return `${Math.floor(diff / day)} ngày trước`;
   };
 
-  const loadSettings = async () => {
-    try {
-      const key = guestMode ? "guestNotifSettings" : `notifSettings_${user?.uid}`;
-      const saved = await AsyncStorage.getItem(key);
-      if (saved) setSettings(JSON.parse(saved));
-    } catch (error) {
-      console.error("Lỗi load settings:", error);
-    }
-  };
+  const getStorageKey = () => guestMode ? "guestNotifications" : `notifications_${user?.uid}`;
 
   const loadNotifications = async () => {
     try {
-      const key = guestMode ? "guestNotifications" : `notifications_${user?.uid}`;
+      const key = getStorageKey();
       const saved = await AsyncStorage.getItem(key);
       if (saved) {
-        setNotifications(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        const fixed = parsed.map(n => ({ ...n, id: n.id.toString() }));
+        setNotifications(fixed);
       } else {
         generateStaticNotifications();
       }
-    } catch (error) {
-      console.error("Lỗi load notifications:", error);
+    } catch (e) {
+      console.error("Load error:", e);
     }
   };
 
-  const generateStaticNotifications = () => {
+  const generateStaticNotifications = async () => {
     const now = Date.now();
-    const region = userProfile?.defaultRegion || "khu vực của bạn";
-
     const staticNotifs = [
-      {
-        id: now - 4 * 60 * 60 * 1000,
-        type: "weather",
-        icon: "warning",
-        color: "#FFA726",
-        title: "Cảnh báo: AQI cao vào chiều nay",
-        message: `Dự báo AQI đạt 142. Hạn chế ra ngoài từ 14:00 - 18:00.`,
-        read: false,
-      },
-      {
-        id: now - 6 * 60 * 60 * 1000,
-        type: "community",
-        icon: "people",
-        color: "#9C27B0",
-        title: "Nhóm 'Xanh Sài Gòn' vừa đăng bài mới",
-        message: `Lan Anh: 'Ai muốn dọn rác kênh Nhiêu Lộc cuối tuần này?'`,
-        read: true,
-      },
+      { id: (now - 4*60*60*1000).toString(), type: "weather", icon: "warning", color: "#FFA726", title: "Cảnh báo: AQI cao", message: "Hạn chế ra ngoài từ 14:00 - 18:00.", read: false },
+      { id: (now - 6*60*60*1000).toString(), type: "community", icon: "people", color: "#9C27B0", title: "Nhóm Xanh Sài Gòn", message: "Lan Anh: Ai muốn dọn rác kênh Nhiêu Lộc?", read: true },
     ];
-
     setNotifications(staticNotifs);
-    saveNotifications(staticNotifs);
+    await saveNotifications(staticNotifs);
   };
 
-  const saveSettings = async (newSettings) => {
+  const saveNotifications = async (notifs) => {
     try {
-      const key = guestMode ? "guestNotifSettings" : `notifSettings_${user?.uid}`;
-      await AsyncStorage.setItem(key, JSON.stringify(newSettings));
-    } catch (error) {
-      console.error("Lỗi save settings:", error);
+      const key = getStorageKey();
+      await AsyncStorage.setItem(key, JSON.stringify(notifs));
+    } catch (e) {
+      console.error("Save error:", e);
     }
   };
 
-  const saveNotifications = async (newNotifs) => {
-    try {
-      const key = guestMode ? "guestNotifications" : `notifications_${user?.uid}`;
-      await AsyncStorage.setItem(key, JSON.stringify(newNotifs));
-    } catch (error) {
-      console.error("Lỗi save notifications:", error);
-    }
-  };
-
-  const toggleSetting = async (key) => {
-    const newSettings = { ...settings, [key]: !settings[key] };
-    setSettings(newSettings);
-    await saveSettings(newSettings);
-    Alert.alert("Đã cập nhật", `Thông báo ${getSettingName(key)} đã được ${newSettings[key] ? "bật" : "tắt"}`);
-  };
-
-  const getSettingName = (key) => {
-    const names = {
-      campaigns: "chiến dịch môi trường",
-      recycling: "thu gom rác",
-      weather: "cảnh báo thời tiết",
-      community: "hoạt động cộng đồng",
-    };
-    return names[key];
-  };
-
-  const markAsRead = async (id) => {
-    const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+  const updateNotification = async (id, updates) => {
+    const updated = notifications.map(n =>
+      n.id === id ? { ...n, ...updates } : n
+    );
     setNotifications(updated);
     await saveNotifications(updated);
   };
 
   const deleteNotification = async (id) => {
-    Alert.alert("Xác nhận", "Bạn có chắc muốn xóa thông báo này?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          const updated = notifications.filter((n) => n.id !== id);
-          setNotifications(updated);
-          await saveNotifications(updated);
-        },
-      },
-    ]);
-  };
-
-  const markAllAsRead = async () => {
-    const updated = notifications.map((n) => ({ ...n, read: true }));
+    const updated = notifications.filter(n => n.id !== id);
     setNotifications(updated);
     await saveNotifications(updated);
-    Alert.alert("Thành công", "Đã đánh dấu tất cả là đã đọc");
+  };
+
+  const markAsRead = (id) => updateNotification(id, { read: true });
+  const markAllAsRead = () => {
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    setNotifications(updated);
+    saveNotifications(updated);
   };
 
   const clearAll = async () => {
-    Alert.alert("Xác nhận", "Bạn có chắc muốn xóa tất cả thông báo?", [
+    Alert.alert("Xóa tất cả", "Chắc chắn xóa toàn bộ?", [
       { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa tất cả",
-        style: "destructive",
-        onPress: async () => {
-          setNotifications([]);
-          await saveNotifications([]);
-        },
-      },
+      { text: "Xóa hết", style: "destructive", onPress: async () => {
+        setNotifications([]);
+        await saveNotifications([]);
+      }},
     ]);
   };
 
@@ -299,324 +199,256 @@ const calculateNextRecycleDay = () => {
     setRefreshing(false);
   };
 
-  const filteredNotifications = notifications.filter((n) => {
-    if (!settings.campaigns && n.type === "campaign") return false;
-    if (!settings.recycling && n.type === "recycling") return false;
-    if (!settings.weather && n.type === "weather") return false;
-    if (!settings.community && n.type === "community") return false;
-    return true;
-  });
-
-  const unreadCount = filteredNotifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#2e7d32" />
-        <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+        <Text style={styles.loadingText}>Đang tải...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
-      <ScrollView
+      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <SafeAreaScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* FR-6.2: Lịch thu gom rác tái chế */}
+        {/* Lịch thu gom */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="reload-circle-outline" size={24} color="#4CAF50" />
+            <Ionicons name="reload-circle-outline" size={28} color="#4CAF50" />
             <Text style={styles.sectionTitle}>Lịch thu gom rác tái chế</Text>
           </View>
-
           <View style={styles.recycleCard}>
             <View style={styles.recycleHeader}>
-              <View style={styles.recycleIconContainer}>
-                <Ionicons name="calendar" size={40} color="#4CAF50" />
-              </View>
-              <View style={styles.recycleInfo}>
-                <Text style={styles.recycleLabel}>Ngày thu gom tiếp theo</Text>
+              <Ionicons name="calendar" size={48} color="#4CAF50" />
+              <View style={{ marginLeft: 16, flex: 1 }}>
+                <Text style={styles.recycleLabel}>Ngày tiếp theo</Text>
                 <Text style={styles.recycleDate}>{nextRecycleDay}</Text>
                 <Text style={styles.recycleTime}>Trước 7:00 sáng</Text>
               </View>
+              <TouchableOpacity style={styles.reminderBtn} onPress={() =>
+                sendNotification("Nhắc nhở thu gom", `Ngày ${nextRecycleDay} là ngày thu gom rác!`)
+              }>
+                <Ionicons name="alarm" size={24} color="#fff" />
+              </TouchableOpacity>
             </View>
-
-            <View style={styles.recycleTips}>
-              <Text style={styles.recycleTipsTitle}>Chuẩn bị:</Text>
-              <Text style={styles.recycleTipsText}>
-                • Phân loại: Nhựa, giấy, kim loại{"\n"}
-                • Rửa sạch các vật dụng{"\n"}
-                • Đặt tại điểm thu gom
+            <View style={styles.tipsBox}>
+              <Text style={styles.tipsTitle}>Chuẩn bị:</Text>
+              <Text style={styles.tipsText}>
+                • Phân loại: Nhựa, giấy, kim loại{'\n'}
+                • Rửa sạch{'\n'}
+                • Đặt trước nhà
               </Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.reminderButton}
-              onPress={() =>
-                sendNotification(
-                  "Nhắc nhở thu gom rác",
-                  `Lịch thu gom rác tái chế sẽ diễn ra vào ngày ${nextRecycleDay}. Hãy chuẩn bị rác tái chế trước 7h sáng nhé!`
-                )
-              }
-            >
-              <Ionicons name="alarm-outline" size={20} color="#fff" />
-              <Text style={styles.reminderButtonText}>Đặt lời nhắc</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* FR-6.1: Chiến dịch môi trường */}
+        {/* Chiến dịch */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="megaphone-outline" size={24} color="#FF9800" />
+            <Ionicons name="megaphone-outline" size={28} color="#FF9800" />
             <Text style={styles.sectionTitle}>Chiến dịch môi trường</Text>
           </View>
-
-          <Text style={styles.sectionDesc}>
-            Các hoạt động sắp diễn ra tại khu vực của bạn
-          </Text>
-
-          {campaigns.map((campaign) => (
-            <TouchableOpacity
-              key={campaign.id}
-              style={styles.campaignCard}
-              onPress={() =>
-                Alert.alert(
-                  campaign.title,
-                  `Thời gian: ${campaign.date}\nĐịa điểm: ${campaign.location}\n\nBạn có muốn nhận thông báo về chiến dịch này không?`,
-                  [
-                    { text: "Để sau", style: "cancel" },
-                    {
-                      text: "Nhận thông báo",
-                      onPress: () =>
-                        sendNotification(
-                          campaign.title,
-                          `Diễn ra vào ${campaign.date} tại ${campaign.location}. Cùng tham gia nhé!`
-                        ),
-                    },
-                  ]
-                )
-              }
-            >
-              <View
-                style={[
-                  styles.campaignIcon,
-                  { backgroundColor: campaign.color + "15" },
-                ]}
-              >
-                <Ionicons name={campaign.icon} size={28} color={campaign.color} />
+          {campaigns.map(c => (
+            <TouchableOpacity key={c.id} style={styles.campaignCard} onPress={() =>
+              Alert.alert(c.title, `${c.date} • ${c.location}\n\nNhận thông báo?`, [
+                { text: "Để sau", style: "cancel" },
+                { text: "Nhận ngay", onPress: () => sendNotification(c.title, `${c.date} tại ${c.location}`, { type: "campaign", icon: c.icon, color: c.color }) },
+              ])
+            }>
+              <View style={[styles.campaignIcon, { backgroundColor: c.color + "20" }]}>
+                <Ionicons name={c.icon} size={30} color={c.color} />
               </View>
-              <View style={styles.campaignContent}>
-                <Text style={styles.campaignTitle}>{campaign.title}</Text>
-                <View style={styles.campaignDetail}>
-                  <Ionicons name="calendar-outline" size={14} color="#666" />
-                  <Text style={styles.campaignDetailText}>{campaign.date}</Text>
-                </View>
-                <View style={styles.campaignDetail}>
-                  <Ionicons name="location-outline" size={14} color="#666" />
-                  <Text style={styles.campaignDetailText}>{campaign.location}</Text>
-                </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.campaignTitle}>{c.title}</Text>
+                <Text style={styles.campaignSubtitle}>{c.date} • {c.location}</Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Ionicons name="chevron-forward" size={24} color="#aaa" />
             </TouchableOpacity>
           ))}
-
-          <TouchableOpacity
-            style={styles.allCampaignsButton}
-            onPress={() =>
-              sendNotification(
-                "Thông báo chiến dịch",
-                "Bạn đã đăng ký nhận thông báo về các chiến dịch môi trường!"
-              )
-            }
-          >
-            <Ionicons name="notifications-outline" size={20} color="#FF9800" />
-            <Text style={styles.allCampaignsButtonText}>
-              Nhận thông báo tất cả chiến dịch
-            </Text>
+          <TouchableOpacity style={styles.allCampaignsButton} onPress={() =>
+            sendNotification("Đã bật tất cả chiến dịch", "Bạn sẽ nhận thông báo mọi hoạt động môi trường!", { type: "campaign", icon: "megaphone", color: "#FF9800" })
+          }>
+            <Ionicons name="notifications" size={22} color="#FF9800" />
+            <Text style={styles.allCampaignsButtonText}>Nhận tất cả chiến dịch</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Notifications List */}
-        <View style={styles.notificationsSection}>
+        {/* Danh sách thông báo */}
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
+            <Ionicons name="notifications-outline" size={28} color="#2196F3" />
             <Text style={styles.sectionTitle}>Thông báo gần đây</Text>
-            <View style={styles.headerActions}>
-              {unreadCount > 0 && (
-                <TouchableOpacity
-                  style={styles.markAllReadButton}
-                  onPress={markAllAsRead}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="checkmark-done" size={18} color="#fff" />
-                  <Text style={styles.markAllReadText}>Đánh dấu đã đọc</Text>
-                </TouchableOpacity>
-              )}
-              {filteredNotifications.length > 0 && (
-                <TouchableOpacity
-                  style={styles.clearAllButton}
-                  onPress={clearAll}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="trash" size={18} color="#fff" />
-                </TouchableOpacity>
-              )}
-            </View>
           </View>
+          
+          {/* Thanh hành động */}
+          {notifications.length > 0 && (
+            <View style={styles.actionsBar}>
+              {unreadCount > 0 && (
+                <TouchableOpacity 
+                  style={styles.markReadButton} 
+                  onPress={markAllAsRead}
+                >
+                  <Ionicons name="checkmark-done" size={20} color="#4CAF50" />
+                  <Text style={styles.markReadText}>Đánh dấu {unreadCount} đã đọc</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity 
+                style={styles.clearAllButton} 
+                onPress={clearAll}
+              >
+                <Ionicons name="trash-outline" size={20} color="#E53935" />
+                <Text style={styles.clearAllText}>Xóa tất cả</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-          {filteredNotifications.length === 0 ? (
+          {notifications.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>Chưa có thông báo nào</Text>
-              <Text style={styles.emptySubtext}>
-                Các thông báo mới sẽ hiển thị tại đây
-              </Text>
+              <Ionicons name="notifications-off" size={68} color="#ddd" />
+              <Text style={styles.emptyText}>Chưa có thông báo</Text>
             </View>
           ) : (
-            filteredNotifications.map((notif) => (
-              <TouchableOpacity
-                key={notif.id}
-                style={[styles.notificationCard, !notif.read && styles.unreadCard]}
-                onPress={async () => {
-                  await markAsRead(notif.id);
-                  navigation.navigate("NotificationDetail", { notification: notif });
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: notif.color }]}>
-                  <Ionicons name={notif.icon} size={24} color="#fff" />
-                </View>
-                <View style={styles.notificationContent}>
-                  <View style={styles.notificationHeader}>
-                    <Text style={styles.notificationTitle}>{notif.title}</Text>
-                    {!notif.read && <View style={styles.unreadDot} />}
-                  </View>
-                  <Text style={styles.notificationMessage}>{notif.message}</Text>
-                  <Text style={styles.notificationTime}>{formatTime(notif.id)}</Text>
-                </View>
+            <View style={{ gap: 12 }}>
+              {notifications.map(notif => (
                 <TouchableOpacity
-                  onPress={() => deleteNotification(notif.id)}
-                  style={styles.deleteButton}
+                  key={notif.id}
+                  style={[
+                    styles.notificationItemContainer,
+                    !notif.read && styles.unreadItem
+                  ]}
+                  onPress={() => {
+                    if (!notif.read) markAsRead(notif.id);
+                    navigation.navigate("NotificationDetail", {
+                      notification: notif,
+                      onUpdate: updateNotification,
+                      onDelete: deleteNotification,
+                    });
+                  }}
                 >
-                  <Ionicons name="close-circle" size={24} color="#999" />
+                  {/* Viền xanh bên trái cho thông báo chưa đọc */}
+                  {!notif.read && <View style={styles.unreadBorder} />}
+                  
+                  <View style={styles.notificationCard}>
+                    <View style={[styles.iconCircle, { backgroundColor: notif.color }]}>
+                      <Ionicons name={notif.icon} size={26} color="#fff" />
+                    </View>
+                    <View style={styles.notificationContent}>
+                      <View style={styles.notificationHeader}>
+                        <Text style={styles.notificationTitle}>{notif.title}</Text>
+                        {!notif.read && <View style={styles.unreadDot} />}
+                      </View>
+                      <Text style={styles.notificationMessage} numberOfLines={2}>
+                        {notif.message}
+                      </Text>
+                      <Text style={styles.notificationTime}>
+                        {formatTime(notif.id)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notif.id);
+                      }}
+                      style={styles.deleteBtn}
+                    >
+                      <Ionicons name="close-circle" size={28} color="#ccc" />
+                    </TouchableOpacity>
+                  </View>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))
+              ))}
+            </View>
           )}
         </View>
 
-        {/* Tips */}
         <View style={styles.tipsCard}>
-          <Ionicons name="bulb-outline" size={24} color="#FFA726" />
-          <View style={styles.tipsContent}>
+          <Ionicons name="bulb" size={30} color="#FFA726" />
+          <View style={{ flex: 1, marginLeft: 16 }}>
             <Text style={styles.tipsTitle}>Mẹo hay</Text>
             <Text style={styles.tipsText}>
-              Bật thông báo để không bỏ lỡ các chiến dịch môi trường và lịch thu gom rác tại khu vực của bạn!
+              Bật thông báo để không bỏ lỡ lịch thu gom và chiến dịch xanh!
             </Text>
           </View>
         </View>
-      </ScrollView>
+
+        <View style={{ height: 50 }} />
+      </SafeAreaScrollView>
     </View>
   );
 }
 
+// STYLES HOÀN CHỈNH
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 50,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: "#666",
-  },
-  header: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 15,
-  },
-  headerTextContainer: { flex: 1 },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  headerSubtitle: { fontSize: 14, color: "#666" },
+  container: { flex: 1, backgroundColor: "#f8f9fa" },
+  centerContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f8f9fa" },
+  loadingText: { marginTop: 12, fontSize: 16, color: "#666" },
+
   section: {
     backgroundColor: "#fff",
-    marginHorizontal: 15,
-    marginTop: 15,
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 18,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
   },
+
+  // Header: icon + chữ sát nhau
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 15,
+    marginBottom: 16,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "bold", color: "#333" },
-  sectionDesc: { fontSize: 13, color: "#666", marginBottom: 12 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#222",
+    marginLeft: 10,
+  },
+
+  // Lịch thu gom
   recycleCard: {
-    backgroundColor: "#f9f9f9",
-    padding: 15,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    backgroundColor: "#f0f8f0",
+    padding: 20,
+    borderRadius: 16,
+    overflow: "hidden",
   },
-  recycleHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-  recycleIconContainer: { marginRight: 15 },
-  recycleInfo: { flex: 1 },
-  recycleLabel: { fontSize: 12, color: "#666", marginBottom: 4 },
-  recycleDate: { fontSize: 20, fontWeight: "bold", color: "#4CAF50", marginBottom: 4 },
-  recycleTime: { fontSize: 13, color: "#666" },
-  recycleTips: {
-    backgroundColor: "#fff3e0",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: "#FF9800",
-  },
-  recycleTipsTitle: { fontSize: 13, fontWeight: "bold", color: "#E65100", marginBottom: 6 },
-  recycleTipsText: { fontSize: 12, color: "#BF360C", lineHeight: 20 },
-  reminderButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  recycleHeader: { flexDirection: "row", alignItems: "center" },
+  recycleLabel: { fontSize: 13, color: "#555" },
+  recycleDate: { fontSize: 24, fontWeight: "800", color: "#2e7d32", marginTop: 2 },
+  recycleTime: { fontSize: 14, color: "#666", marginTop: 2 },
+  reminderBtn: {
     backgroundColor: "#4CAF50",
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 50,
+    paddingHorizontal: 20,
   },
-  reminderButtonText: { marginLeft: 8, color: "#fff", fontWeight: "600", fontSize: 14 },
+  tipsBox: {
+    backgroundColor: "#fff8e1",
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    borderLeftWidth: 5,
+    borderLeftColor: "#FFB300",
+  },
+  tipsTitle: { fontWeight: "700", color: "#E65100", marginBottom: 6 },
+  tipsText: { fontSize: 13.5, color: "#5D4037", lineHeight: 20 },
+
+  // Chiến dịch
   campaignCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
   },
   campaignIcon: {
     width: 56,
@@ -625,87 +457,162 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  campaignContent: { flex: 1, marginLeft: 12 },
-  campaignTitle: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 6 },
-  campaignDetail: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 3 },
-  campaignDetailText: { fontSize: 12, color: "#666" },
+  campaignTitle: { fontSize: 16, fontWeight: "600", color: "#222" },
+  campaignSubtitle: { fontSize: 13.5, color: "#666", marginTop: 4 },
   allCampaignsButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fff3e0",
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 5,
-    borderWidth: 1,
-    borderColor: "#ffe0b2",
+    padding: 16,
+    borderRadius: 14,
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: "#FF9800",
   },
-  allCampaignsButtonText: { marginLeft: 8, color: "#E65100", fontWeight: "600", fontSize: 14 },
+  allCampaignsButtonText: { marginLeft: 10, color: "#E65100", fontWeight: "700", fontSize: 15 },
 
-  // === PHẦN CŨ ===
-  headerCard: { backgroundColor: "#fff", margin: 15, marginBottom: 10, padding: 20, borderRadius: 15, flexDirection: "row", elevation: 3 },
-  statItem: { flex: 1, alignItems: "center" },
-  statNumber: { fontSize: 28, fontWeight: "bold", color: "#2e7d32", marginTop: 8 },
-  statLabel: { fontSize: 12, color: "#666", marginTop: 4 },
-  divider: { width: 1, backgroundColor: "#e0e0e0", marginHorizontal: 15 },
-  settingsCard: { backgroundColor: "#fff", margin: 15, marginTop: 5, padding: 15, borderRadius: 15, elevation: 3 },
-  settingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },
-  settingInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
-  settingText: { marginLeft: 15, flex: 1 },
-  settingTitle: { fontSize: 16, fontWeight: "600", color: "#333" },
-  settingDesc: { fontSize: 13, color: "#666", marginTop: 2 },
-  notificationsSection: { margin: 15, marginTop: 5 },
-  emptyState: { backgroundColor: "#fff", padding: 40, borderRadius: 15, alignItems: "center" },
-  emptyText: { fontSize: 18, fontWeight: "600", color: "#666", marginTop: 15 },
-  emptySubtext: { fontSize: 14, color: "#999", marginTop: 5, textAlign: "center" },
-  notificationCard: { backgroundColor: "#fff", marginBottom: 10, padding: 15, borderRadius: 12, flexDirection: "row", elevation: 2 },
-  unreadCard: { borderLeftWidth: 4, borderLeftColor: "#2e7d32" },
-  iconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center", marginRight: 12 },
-  notificationContent: { flex: 1 },
-  notificationHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  notificationTitle: { fontSize: 16, fontWeight: "bold", color: "#333", flex: 1 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#2e7d32", marginLeft: 8 },
-  notificationMessage: { fontSize: 14, color: "#666", lineHeight: 20, marginBottom: 6 },
-  notificationTime: { fontSize: 12, color: "#999" },
-  deleteButton: { padding: 5 },
-  tipsCard: { backgroundColor: "#fff3e0", margin: 15, marginTop: 5, padding: 20, borderRadius: 15, flexDirection: "row", borderLeftWidth: 4, borderLeftColor: "#FFA726" },
-  tipsContent: { flex: 1, marginLeft: 15 },
-  tipsTitle: { fontSize: 16, fontWeight: "bold", color: "#F57C00", marginBottom: 5 },
-  tipsText: { fontSize: 14, color: "#5D4037", lineHeight: 20 },
-
-  // === NÚT MỚI - ĐẸP HƠN ===
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  markAllReadButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#2e7d32",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
-    gap: 6,
-    elevation: 2,
+  // THÔNG BÁO
+  notificationItemContainer: {
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: "#fff",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 6,
+    position: "relative",
   },
-  markAllReadText: {
-    color: "#fff",
-    fontSize: 13.5,
+  unreadItem: {
+    shadowColor: "#4CAF50",
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  // Viền xanh bên trái cho thông báo chưa đọc
+  unreadBorder: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+    backgroundColor: "#4CAF50",
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+    zIndex: 1,
+  },
+  notificationCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 18,
+    backgroundColor: "#fff",
+  },
+  iconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  notificationContent: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  notificationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  notificationTitle: {
+    fontSize: 16,
     fontWeight: "600",
+    color: "#222",
+    flex: 1,
+  },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#4CAF50",
+    marginLeft: 8,
+  },
+  notificationMessage: {
+    fontSize: 14.5,
+    color: "#555",
+    marginTop: 4,
+    lineHeight: 21,
+  },
+  notificationTime: {
+    fontSize: 13,
+    color: "#999",
+    marginTop: 6,
+  },
+  deleteBtn: {
+    padding: 4,
+  },
+
+  // Thanh hành động
+  actionsBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  markReadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F5E9",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#4CAF50",
+  },
+  markReadText: {
+    marginLeft: 6,
+    color: "#2e7d32",
+    fontWeight: "600",
+    fontSize: 14,
   },
   clearAllButton: {
-    backgroundColor: "#E53935",
-    padding: 9,
-    borderRadius: 20,
-    elevation: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFEBEE",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E53935",
+  },
+  clearAllText: {
+    marginLeft: 6,
+    color: "#C62828",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+
+  emptyState: { padding: 50, alignItems: "center" },
+  emptyText: { fontSize: 18, fontWeight: "600", color: "#aaa", marginTop: 16 },
+
+  tipsCard: {
+    flexDirection: "row",
+    backgroundColor: "#fff8e1",
+    margin: 16,
+    marginTop: 15,
+    padding: 20,
+    borderRadius: 18,
+    borderLeftWidth: 6,
+    borderLeftColor: "#FFB300",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });
