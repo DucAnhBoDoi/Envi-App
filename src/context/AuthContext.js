@@ -8,7 +8,6 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
-  getAuth
 } from "firebase/auth";
 import { auth as firebaseAuth } from "../services/firebaseConfig";
 
@@ -24,13 +23,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Người dùng đã đăng nhập với email/password hoặc OAuth
         setUser(firebaseUser);
         setGuestMode(false);
         await AsyncStorage.setItem("user", JSON.stringify(firebaseUser));
         await AsyncStorage.removeItem("guestUser");
       } else {
-        // Kiểm tra chế độ khách
         const localUser = await AsyncStorage.getItem("guestUser");
         if (localUser) {
           setUser(JSON.parse(localUser));
@@ -45,63 +42,25 @@ export const AuthProvider = ({ children }) => {
     return unsub;
   }, []);
 
-  // Đăng ký với email/mật khẩu
   const signUpWithEmail = async (email, password, displayName) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName });
       return { success: true };
     } catch (error) {
-      console.log("🔥 Lỗi đăng ký:", error.code);
-      return { success: false, errorCode: error.code }; // ✅ thêm dòng này
+      return { success: false, errorCode: error.code };
     }
   };
 
-  // Đăng nhập bằng Google (Firebase đã xác thực sẵn)
-  const signInWithGoogle = async (user) => {
-    try {
-      // user từ firebase đã đăng nhập rồi
-      setUser(user);
-      setGuestMode(false);
-      await AsyncStorage.setItem("user", JSON.stringify(user));
-      await AsyncStorage.removeItem("guestUser");
-      console.log("✅ Lưu thông tin Google user vào context:", user.displayName);
-      return { success: true };
-    } catch (error) {
-      console.log("❌ Lỗi khi lưu Google user:", error);
-      return { success: false, error: error.message };
-    }
-  };
-
-
-  // Đăng nhập với email/mật khẩu
   const signInWithEmail = async (email, password) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       return { success: true };
     } catch (error) {
-      console.log("🔥 Lỗi đăng nhập:", error.code);
-      return { success: false, errorCode: error.code }; // ✅ TRẢ RA errorCode đúng
+      return { success: false, errorCode: error.code };
     }
   };
 
-  // Đăng nhập bằng Google (Firebase đã xác thực sẵn)
-  const signInWithGoogle = async (user) => {
-    try {
-      // user từ firebase đã đăng nhập rồi
-      setUser(user);
-      setGuestMode(false);
-      await AsyncStorage.setItem("user", JSON.stringify(user));
-      await AsyncStorage.removeItem("guestUser");
-      console.log("✅ Lưu thông tin Google user vào context:", user.displayName);
-      return { success: true };
-    } catch (error) {
-      console.log("❌ Lỗi khi lưu Google user:", error);
-      return { success: false, error: error.message };
-    }
-  };
-
-  // Chế độ khách (dữ liệu lưu cục bộ)
   const signInAsGuest = async (guestName = "Khách") => {
     try {
       const guestUser = {
@@ -120,38 +79,45 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Đặt lại mật khẩu
   const resetPassword = async (email) => {
     try {
-      console.log("📧 Sending password reset email to:", email);
       await sendPasswordResetEmail(auth, email, {
         url: "https://envi-app-fe11b.firebaseapp.com",
         handleCodeInApp: false,
       });
-      console.log("✅ Password reset email sent");
-      return {
-        success: true,
-        message: "Email đặt lại mật khẩu đã được gửi! Vui lòng kiểm tra thư rác nếu không thấy."
-      };
+      return { success: true };
     } catch (error) {
-      console.error("❌ Reset password error:", error);
       return { success: false, error: error.message };
     }
   };
 
-  // Đăng xuất
+  // ĐĂNG XUẤT HOÀN HẢO - XÓA SẠCH GUEST + KHÔNG LỖI RESET
   const logout = async () => {
     try {
-      if (!guestMode) {
+      if (guestMode) {
+        // XÓA SẠCH HOÀN TOÀN DỮ LIỆU GUEST
+        await AsyncStorage.multiRemove([
+          "guestUser",
+          "guestProfile",
+          "guestReportHistory",
+          "guestChatHistory",
+          "guestAqiThreshold",
+          "guest_notifications",
+          "guest_notifSettings",
+          "guest_learningQuizHistory",
+          "guest_learningCompletedTips",
+        ]);
+        console.log("ĐÃ XÓA SẠCH DỮ LIỆU KHÁCH");
+      } else {
         await signOut(auth);
         await AsyncStorage.removeItem("user");
-      } else {
-        await AsyncStorage.removeItem("guestUser");
       }
+
       setUser(null);
       setGuestMode(false);
       return { success: true };
     } catch (error) {
+      console.error("Logout error:", error);
       return { success: false, error: error.message };
     }
   };

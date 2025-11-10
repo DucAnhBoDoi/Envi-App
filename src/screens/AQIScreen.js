@@ -19,6 +19,8 @@ import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../context/UserContext";
 import { OPENWEATHER_API_KEY } from "@env";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
+
 
 
 // Ẩn cảnh báo expo-notifications trong Expo Go
@@ -217,14 +219,10 @@ export default function AQIScreen() {
   const info = getAQIInfo(displayedAqi);
 
   return (
-    <View style={[styles.container, { paddingTop: StatusBar.currentHeight || 40 }]}>
+    <>
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: 80 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <SafeAreaScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <Ionicons name="leaf-outline" size={32} color="#2e7d32" />
@@ -253,11 +251,11 @@ export default function AQIScreen() {
           <View style={styles.weatherCard}>
             <Image source={{ uri: aqiData.weatherIcon }} style={styles.weatherIcon} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.locationText}>📍 {aqiData.locationName}</Text>
+              <Text style={styles.locationText}>Location: {aqiData.locationName}</Text>
               <Text style={styles.tempText}>
-                🌡️ {aqiData.tempC.toFixed(1)}°C / {aqiData.tempF.toFixed(1)}°F
+                Temperature: {aqiData.tempC.toFixed(1)}°C / {aqiData.tempF.toFixed(1)}°F
               </Text>
-              <Text style={styles.humidityText}>💧 Độ ẩm: {aqiData.humidity}%</Text>
+              <Text style={styles.humidityText}>Humidity: {aqiData.humidity}%</Text>
               <Text style={styles.weatherDesc}>
                 {aqiData.weatherDesc.charAt(0).toUpperCase() + aqiData.weatherDesc.slice(1)}
               </Text>
@@ -265,9 +263,9 @@ export default function AQIScreen() {
           </View>
         )}
 
-        {/* Air components */}
+        {/* Air Components */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🌬️ Thành phần không khí</Text>
+          <Text style={styles.sectionTitle}>Air Components</Text>
           {aqiData ? (
             Object.entries(aqiData.components).map(([key, val]) => (
               <View key={key} style={styles.row}>
@@ -282,27 +280,24 @@ export default function AQIScreen() {
 
         {/* Slider */}
         <View style={styles.section}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Text style={styles.sectionTitle}>⚙️ Ngưỡng cảnh báo AQI</Text>
-            <Text style={{ fontSize: 16, fontWeight: "600", color: "#2e7d32" }}>
-              {aqiThreshold}
-            </Text>
+          <View style={styles.sliderHeader}>
+            <Text style={styles.sectionTitle}>AQI Alert Threshold</Text>
+            <Text style={styles.sliderValue}>{aqiThreshold}</Text>
           </View>
-
           <Slider
             style={{ width: "100%", height: 40 }}
             minimumValue={0}
             maximumValue={500}
             step={10}
             value={aqiThreshold}
-            onValueChange={(v) => setAqiThreshold(v)}
+            onValueChange={setAqiThreshold}
             minimumTrackTintColor="#2e7d32"
             maximumTrackTintColor="#ccc"
           />
           <Text style={styles.sliderHint}>Nhận thông báo khi AQI ≥ {aqiThreshold}</Text>
         </View>
-      </ScrollView>
-    </View>
+      </SafeAreaScrollView>
+    </>
   );
 }
 
@@ -320,6 +315,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
+    marginTop: StatusBar.currentHeight || 0,
   },
   refreshBtn: { position: "absolute", right: 20, padding: 6 },
   headerText: { fontSize: 18, fontWeight: "bold", color: "#333" },
