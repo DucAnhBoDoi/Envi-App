@@ -16,6 +16,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { UserContext } from "../context/UserContext";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
+import { CommonActions } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation }) {
   const { user, guestMode, logout } = useContext(AuthContext);
@@ -32,7 +34,7 @@ export default function ProfileScreen({ navigation }) {
     Alert.alert(
       "Xác nhận đăng xuất",
       guestMode
-        ? "Dữ liệu của bạn sẽ bị xóa sau khi đăng xuất. Bạn có chắc chắn?"
+        ? "Bạn đang dùng tài khoản khách!\n\nTẤT CẢ dữ liệu (báo cáo, chat, cài đặt...) sẽ bị XÓA HOÀN TOÀN và không thể khôi phục!\n\nBạn có chắc chắn?"
         : "Bạn có chắc chắn muốn đăng xuất?",
       [
         { text: "Hủy", style: "cancel" },
@@ -41,9 +43,12 @@ export default function ProfileScreen({ navigation }) {
           style: "destructive",
           onPress: async () => {
             await logout();
+            // XONG! Không cần làm gì thêm
+            // App tự về màn đăng nhập
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -85,7 +90,7 @@ export default function ProfileScreen({ navigation }) {
   const userChatCount = chatHistory.filter(item => item.sender === "user").length;
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaScrollView style={styles.container}>
       {/* Header với avatar */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
@@ -233,7 +238,7 @@ export default function ProfileScreen({ navigation }) {
       </TouchableOpacity>
 
       <View style={{ height: 30 }} />
-    </ScrollView>
+    </SafeAreaScrollView>
   );
 }
 
