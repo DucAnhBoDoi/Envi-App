@@ -1,20 +1,227 @@
-// src/screens/HomeScreen.js
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useContext } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { UserContext } from "../context/UserContext";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }) {
+  const { communityPosts = [], communityGroups = [], userProfile = {} } =
+    useContext(UserContext) || {};
+
+  // 🔒 Ép kiểu an toàn để tránh lỗi object hoặc undefined
+  const reportsSent = Number(communityPosts?.length || 0);
+  const members = Number(
+    communityGroups?.reduce((acc, g) => acc + (Number(g?.members) || 0), 0) || 0
+  );
+  const userPoints = Number(userProfile?.points || 0);
+
+  const features = [
+    {
+      id: 1,
+      title: "Thông báo",
+      subtitle: "Chiến dịch & nhắc nhở",
+      icon: "notifications",
+      color: "#4CAF50",
+      screen: "Notifications",
+    },
+    {
+      id: 2,
+      title: "Cộng đồng",
+      subtitle: "Chia sẻ & kết nối",
+      icon: "people",
+      color: "#03A9F4",
+      screen: "Community",
+    },
+    {
+      id: 3,
+      title: "Học tập",
+      subtitle: "Kiến thức & quiz",
+      icon: "school",
+      color: "#FFC107",
+      screen: "Learning",
+    },
+  ];
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🌍 Ứng dụng Bảo vệ Môi Trường</Text>
-      <Text style={styles.text}>
-        Theo dõi chất lượng không khí, xử lý rác đúng cách, báo cáo vi phạm và nhiều hơn nữa.
-      </Text>
-    </View>
+    <SafeAreaScrollView>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Bảo vệ Môi Trường</Text>
+        <Text style={styles.subtitle}>
+          Cùng nhau xây dựng môi trường xanh sạch đẹp
+        </Text>
+      </View>
+
+      {/* Feature Grid */}
+      <View style={styles.featuresContainer}>
+        {features.map((feature) => (
+          <TouchableOpacity
+            key={feature.id}
+            style={[styles.featureCard, { backgroundColor: feature.color }]}
+            onPress={() =>
+              navigation?.navigate?.(feature.screen || "Home")
+            }
+            activeOpacity={0.7}
+          >
+            <View style={styles.iconContainer}>
+              <Ionicons name={feature.icon} size={40} color="#fff" />
+            </View>
+            <Text style={styles.featureTitle}>
+              {String(feature.title || "")}
+            </Text>
+            <Text style={styles.featureSubtitle}>
+              {String(feature.subtitle || "")}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Quick Stats */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <Ionicons name="leaf" size={24} color="#2e7d32" />
+          <Text style={styles.statNumber}>{String(reportsSent)}</Text>
+          <Text style={styles.statLabel}>Bài viết</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Ionicons name="people" size={24} color="#2e7d32" />
+          <Text style={styles.statNumber}>{String(members)}</Text>
+          <Text style={styles.statLabel}>Thành viên</Text>
+        </View>
+
+        <View style={styles.statCard}>
+          <Ionicons name="trophy" size={24} color="#2e7d32" />
+          <Text style={styles.statNumber}>{String(userPoints)}</Text>
+          <Text style={styles.statLabel}>Điểm của bạn</Text>
+        </View>
+      </View>
+
+      {/* Daily Tip */}
+      <View style={styles.tipCard}>
+        <View style={styles.tipHeader}>
+          <Ionicons name="bulb" size={24} color="#FFA726" />
+          <Text style={styles.tipTitle}>Mẹo hôm nay</Text>
+        </View>
+        <Text style={styles.tipText}>
+          Hãy mang túi vải khi đi chợ để giảm thiểu rác thải nhựa!
+        </Text>
+      </View>
+    </SafeAreaScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  title: { fontSize: 22, fontWeight: "bold", color: "#2e7d32", marginBottom: 10 },
-  text: { textAlign: "center", fontSize: 16 },
+  header: {
+    backgroundColor: "#2e7d32",
+    padding: 30,
+    paddingTop: 50,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 8,
+  },
+  subtitle: { fontSize: 16, color: "#e8f5e9" },
+
+  featuresContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    padding: 15,
+    justifyContent: "space-between",
+  },
+  featureCard: {
+    width: "48%",
+    aspectRatio: 1,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 15,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  iconContainer: { marginBottom: 10 },
+  featureTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+    marginTop: 10,
+  },
+  featureSubtitle: {
+    fontSize: 12,
+    color: "#fff",
+    opacity: 0.9,
+    marginTop: 5,
+    textAlign: "center",
+  },
+
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 15,
+    paddingTop: 5,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 15,
+    marginHorizontal: 5,
+    alignItems: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#2e7d32",
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    textAlign: "center",
+  },
+
+  tipCard: {
+    backgroundColor: "#fff3e0",
+    margin: 15,
+    marginTop: 10,
+    padding: 20,
+    borderRadius: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FFA726",
+  },
+  tipHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  tipTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#F57C00",
+    marginLeft: 10,
+  },
+  tipText: {
+    fontSize: 15,
+    color: "#5D4037",
+    lineHeight: 22,
+  },
 });
