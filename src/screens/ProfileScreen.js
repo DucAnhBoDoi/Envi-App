@@ -1,4 +1,5 @@
 // src/screens/ProfileScreen.js
+// src/screens/ProfileScreen.js
 import React, { useContext } from "react";
 import {
   View,
@@ -9,11 +10,14 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { UserContext } from "../context/UserContext";
-import { StatusBar, Platform } from "react-native";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
+import { CommonActions } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation }) {
   const { user, guestMode, logout } = useContext(AuthContext);
@@ -30,7 +34,7 @@ export default function ProfileScreen({ navigation }) {
     Alert.alert(
       "Xác nhận đăng xuất",
       guestMode
-        ? "Dữ liệu của bạn sẽ bị xóa sau khi đăng xuất. Bạn có chắc chắn?"
+        ? "Bạn đang dùng tài khoản khách!\n\nTẤT CẢ dữ liệu (báo cáo, chat, cài đặt...) sẽ bị XÓA HOÀN TOÀN và không thể khôi phục!\n\nBạn có chắc chắn?"
         : "Bạn có chắc chắn muốn đăng xuất?",
       [
         { text: "Hủy", style: "cancel" },
@@ -39,9 +43,12 @@ export default function ProfileScreen({ navigation }) {
           style: "destructive",
           onPress: async () => {
             await logout();
+            // XONG! Không cần làm gì thêm
+            // App tự về màn đăng nhập
           },
         },
-      ]
+      ],
+      { cancelable: true }
     );
   };
 
@@ -79,8 +86,11 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
+  // 🔹 Chỉ đếm câu hỏi của user
+  const userChatCount = chatHistory.filter(item => item.sender === "user").length;
+
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaScrollView style={styles.container}>
       {/* Header với avatar */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
@@ -92,7 +102,6 @@ export default function ProfileScreen({ navigation }) {
             </View>
           )}
 
-          {/* Badge phân biệt khách/user */}
           {guestMode ? (
             <View style={[styles.badge, styles.guestBadge]}>
               <Ionicons name="person-circle-outline" size={14} color="#fff" />
@@ -118,7 +127,6 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.userBio}>{userProfile.bio}</Text>
         )}
 
-        {/* Nút chỉnh sửa - chỉ cho user đăng nhập */}
         {!guestMode && (
           <TouchableOpacity
             style={styles.editButton}
@@ -129,7 +137,6 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         )}
 
-        {/* Cảnh báo cho khách */}
         {guestMode && (
           <View style={styles.warningBox}>
             <Ionicons name="warning-outline" size={20} color="#ff6b6b" />
@@ -168,7 +175,7 @@ export default function ProfileScreen({ navigation }) {
           />
           <StatCard
             icon="chatbubbles-outline"
-            count={chatHistory.length}
+            count={userChatCount} // ✅ chỉ đếm câu hỏi của user
             label="Câu hỏi"
             color="#1976d2"
           />
@@ -193,7 +200,9 @@ export default function ProfileScreen({ navigation }) {
           onPress={() => navigation.navigate("ChatHistory")}
         >
           <Ionicons name="chatbubbles-outline" size={24} color="#1976d2" />
-          <Text style={styles.historyButtonText}>Lịch sử chat ({chatHistory.length})</Text>
+          <Text style={styles.historyButtonText}>
+            Lịch sử chat ({userChatCount}) {/* ✅ chỉ đếm câu hỏi của user */}
+          </Text>
           <Ionicons name="chevron-forward" size={24} color="#999" />
         </TouchableOpacity>
       </View>
@@ -223,14 +232,13 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Nút đăng xuất */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={24} color="#fff" />
         <Text style={styles.logoutButtonText}>Đăng xuất</Text>
       </TouchableOpacity>
 
       <View style={{ height: 30 }} />
-    </ScrollView>
+    </SafeAreaScrollView>
   );
 }
 
@@ -245,7 +253,7 @@ const InfoRow = ({ icon, label, value }) => (
   </View>
 );
 
-// Component StatCard
+// Component StatCard (giữ nguyên như code của bạn)
 const StatCard = ({ icon, count, label, color }) => (
   <View style={styles.statCard}>
     <Ionicons name={icon} size={32} color={color} />
@@ -253,6 +261,7 @@ const StatCard = ({ icon, count, label, color }) => (
     <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },

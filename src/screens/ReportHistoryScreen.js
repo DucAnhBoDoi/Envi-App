@@ -45,7 +45,7 @@ export default function ReportHistoryScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageList, setImageList] = useState([]);
 
-  // 🔁 Tự động cập nhật trạng thái mỗi 30 giây
+  // 🔁 Tự động cập nhật trạng thái mỗi 10 giây
   useEffect(() => {
     const interval = setInterval(() => {
       if (!reportHistory || reportHistory.length === 0) return;
@@ -60,7 +60,7 @@ export default function ReportHistoryScreen() {
 
         updateReportStatus(report.id, nextStatus);
       });
-    }, 30000); // 30 giây
+    }, 10000); // 10 giây
 
     return () => clearInterval(interval);
   }, [reportHistory]);

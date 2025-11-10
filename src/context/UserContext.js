@@ -298,6 +298,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  // 🔥 FIX: Thêm tin nhắn vào lịch sử chat
   const addChatToHistory = async (message) => {
     try {
       if (!user) return { success: false, error: "No user" };
@@ -652,6 +653,7 @@ export const UserProvider = ({ children }) => {
         clearReportHistory,
         clearAllLocalData,
         loadUserProfile,
+        loadChatHistory,
         updateReportStatus,
         communityPosts,
         communityGroups,
