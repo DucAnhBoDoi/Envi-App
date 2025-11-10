@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { IMAGGA_API_KEY, IMAGGA_API_SECRET } from "@env";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
 
 // Dữ liệu chi tiết về các loại rác
@@ -491,277 +492,238 @@ export default function WasteGuideScreen() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: 80 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Ionicons name="reload-circle" size={32} color="#2e7d32" />
-          <Text style={styles.headerText}>Hướng dẫn xử lý rác thải</Text>
+return (
+  <>
+    <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
+
+    <SafeAreaScrollView showsVerticalScrollIndicator={false}>
+      {/* HEADER – GIỐNG HỆT AQI */}
+      <View style={styles.header}>
+        <Ionicons name="reload-circle" size={32} color="#2e7d32" />
+        <Text style={styles.headerText}>Hướng dẫn xử lý rác thải</Text>
+      </View>
+
+      {/* TÌM KIẾM */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tìm kiếm hướng dẫn</Text>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#555" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Nhập tên vật phẩm (vd: chai nhựa, pin...)"
+            value={search}
+            onChangeText={setSearch}
+            onSubmitEditing={searchWasteGuide}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔍 Tìm kiếm hướng dẫn</Text>
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#555" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Nhập tên vật phẩm (vd: chai nhựa, pin...)"
-              value={search}
-              onChangeText={setSearch}
-              onSubmitEditing={searchWasteGuide}
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch("")}>
-                <Ionicons name="close-circle" size={20} color="#999" />
-              </TouchableOpacity>
+        {search.length > 0 && (
+          <View style={styles.searchResults}>
+            {Object.entries(COMMON_ITEMS)
+              .filter(([item]) => item.toLowerCase().includes(search.toLowerCase()))
+              .slice(0, 5)
+              .map(([item, data]) => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.searchResultItem}
+                  onPress={() => {
+                    setSearch(item);
+                    setSelectedType(data.type);
+                  }}
+                >
+                  <Text style={styles.searchResultIcon}>{data.icon}</Text>
+                  <Text style={styles.searchResultText}>{item}</Text>
+                  <Ionicons name="arrow-forward" size={16} color="#999" />
+                </TouchableOpacity>
+              ))}
+          </View>
+        )}
+      </View>
+
+      {/* AI NHẬN DẠNG */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Nhận dạng bằng AI</Text>
+        <Text style={styles.sectionDesc}>
+          Chụp hoặc tải lên hình ảnh rác để AI tự động phân loại
+        </Text>
+
+        <View style={styles.aiButtons}>
+          <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
+            <Ionicons name="camera-outline" size={24} color="#2e7d32" />
+            <Text style={styles.imageButtonText}>Chụp ảnh</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+            <Ionicons name="image-outline" size={24} color="#2e7d32" />
+            <Text style={styles.imageButtonText}>Chọn từ thư viện</Text>
+          </TouchableOpacity>
+        </View>
+
+        {pickedImage && (
+          <View style={styles.imagePreviewContainer}>
+            <Image source={{ uri: pickedImage }} style={styles.previewImage} />
+            {aiProcessing && (
+              <View style={styles.processingOverlay}>
+                <ActivityIndicator size="large" color="#2e7d32" />
+                <Text style={styles.processingText}>Đang phân tích...</Text>
+              </View>
             )}
           </View>
-
-          {search.length > 0 && (
-            <View style={styles.searchResults}>
-              {Object.entries(COMMON_ITEMS)
-                .filter(([item]) => item.includes(search.toLowerCase()))
-                .slice(0, 5)
-                .map(([item, data]) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={styles.searchResultItem}
-                    onPress={() => {
-                      setSearch(item);
-                      setSelectedType(data.type);
-                    }}
-                  >
-                    <Text style={styles.searchResultIcon}>{data.icon}</Text>
-                    <Text style={styles.searchResultText}>{item}</Text>
-                    <Ionicons name="arrow-forward" size={16} color="#999" />
-                  </TouchableOpacity>
-                ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🤖 Nhận dạng bằng AI</Text>
-          <Text style={styles.sectionDesc}>
-            Chụp hoặc tải lên hình ảnh rác để AI tự động phân loại
-          </Text>
-
-          <View style={styles.aiButtons}>
-            <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
-              <Ionicons name="camera-outline" size={24} color="#2e7d32" />
-              <Text style={styles.imageButtonText}>Chụp ảnh</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-              <Ionicons name="image-outline" size={24} color="#2e7d32" />
-              <Text style={styles.imageButtonText}>Chọn từ thư viện</Text>
-            </TouchableOpacity>
-          </View>
-
-          {pickedImage && (
-            <View style={styles.imagePreviewContainer}>
-              <Image
-                source={{ uri: pickedImage }}
-                style={styles.previewImage}
-              />
-              {aiProcessing && (
-                <View style={styles.processingOverlay}>
-                  <ActivityIndicator size="large" color="#2e7d32" />
-                  <Text style={styles.processingText}>Đang phân tích...</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {aiResult && !aiProcessing && (
-            <View style={styles.aiResultBox}>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-              <Text style={styles.aiResultText}>
-                AI nhận dạng:{" "}
-                <Text style={styles.aiResultBold}>{aiResult}</Text>
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>♻️ Phân loại rác thải</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.wasteTypesScroll}
-          >
-            {WASTE_TYPES.map((waste) => (
-              <TouchableOpacity
-                key={waste.type}
-                style={[
-                  styles.wasteCard,
-                  { borderColor: waste.color },
-                  selectedType === waste.type && {
-                    backgroundColor: waste.color + "15",
-                    borderWidth: 2,
-                  },
-                ]}
-                onPress={() => setSelectedType(waste.type)}
-              >
-                <Ionicons name={waste.icon} size={32} color={waste.color} />
-                <Text style={[styles.wasteCardTitle, { color: waste.color }]}>
-                  {waste.type}
-                </Text>
-                <Text style={styles.wasteCardDesc}>{waste.description}</Text>
-                {waste.hazardous && (
-                  <View style={styles.hazardBadge}>
-                    <Ionicons name="warning" size={12} color="#E53935" />
-                    <Text style={styles.hazardText}>Nguy hại</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {selectedWasteInfo && (
-          <>
-            <View
-              style={[
-                styles.detailCard,
-                { borderLeftColor: selectedWasteInfo.color },
-              ]}
-            >
-              <View style={styles.detailHeader}>
-                <Ionicons
-                  name={selectedWasteInfo.icon}
-                  size={40}
-                  color={selectedWasteInfo.color}
-                />
-                <View style={{ flex: 1, marginLeft: 15 }}>
-                  <Text
-                    style={[
-                      styles.detailTitle,
-                      { color: selectedWasteInfo.color },
-                    ]}
-                  >
-                    {selectedWasteInfo.type}
-                  </Text>
-                  <Text style={styles.detailDesc}>
-                    {selectedWasteInfo.description}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>
-                  📖 Hướng dẫn xử lý:
-                </Text>
-                <Text style={styles.detailText}>{selectedWasteInfo.guide}</Text>
-              </View>
-
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>💡 Mẹo hữu ích:</Text>
-                {selectedWasteInfo.tips.map((tip, index) => (
-                  <View key={index} style={styles.tipItem}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={16}
-                      color="#4CAF50"
-                    />
-                    <Text style={styles.tipText}>{tip}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.badges}>
-                {selectedWasteInfo.recyclable && (
-                  <View style={[styles.badge, { backgroundColor: "#4CAF50" }]}>
-                    <Ionicons name="reload" size={14} color="#fff" />
-                    <Text style={styles.badgeText}>Tái chế được</Text>
-                  </View>
-                )}
-                {selectedWasteInfo.hazardous && (
-                  <View style={[styles.badge, { backgroundColor: "#E53935" }]}>
-                    <Ionicons name="warning" size={14} color="#fff" />
-                    <Text style={styles.badgeText}>Nguy hại</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                📍 Địa điểm thu gom gần nhất
-              </Text>
-
-              {loadingLocations && (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#2e7d32" />
-                  <Text style={styles.loadingText}>
-                    Đang tìm địa điểm gần bạn...
-                  </Text>
-                </View>
-              )}
-
-              {!loadingLocations && nearbyLocations.length === 0 && (
-                <View style={styles.noLocationContainer}>
-                  <Ionicons name="location-outline" size={48} color="#999" />
-                  <Text style={styles.noLocationText}>
-                    Không tìm thấy địa điểm trực tuyến
-                  </Text>
-                  <Text style={styles.noLocationSubText}>
-                    Vui lòng liên hệ chính quyền địa phương để biết thông tin
-                    điểm thu gom {selectedType}
-                  </Text>
-                </View>
-              )}
-
-              {!loadingLocations &&
-                nearbyLocations.map((loc, index) => (
-                  <View key={loc.id || index} style={styles.locationCard}>
-                    <View style={styles.locationHeader}>
-                      <Ionicons name="location" size={24} color="#2e7d32" />
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={styles.locationName}>{loc.name}</Text>
-                        <Text style={styles.locationAddress}>
-                          {loc.address}
-                        </Text>
-                        <Text style={styles.locationDistance}>
-                          📏 Cách bạn {loc.distance} km
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.locationActions}>
-                      <TouchableOpacity
-                        style={styles.actionButtonFull}
-                        onPress={() => openMap(loc.lat, loc.lon, loc.name)}
-                      >
-                        <Ionicons name="navigate" size={20} color="#fff" />
-                        <Text style={styles.actionButtonText}>
-                          Chỉ đường đến đây
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-            </View>
-          </>
         )}
 
-        <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>🌍 Mẹo bảo vệ môi trường</Text>
-          <Text style={styles.tipsText}>
-            • Giảm thiểu sử dụng đồ nhựa dùng một lần{"\n"}• Mang theo túi vải
-            khi đi chợ{"\n"}• Tái sử dụng và sửa chữa trước khi vứt bỏ{"\n"}•
-            Phân loại rác tại nguồn giúp tái chế hiệu quả hơn
-          </Text>
-        </View>
-      </ScrollView>
-    </View>
-  );
+        {aiResult && !aiProcessing && (
+          <View style={styles.aiResultBox}>
+            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+            <Text style={styles.aiResultText}>
+              AI nhận dạng: <Text style={styles.aiResultBold}>{aiResult}</Text>
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* PHÂN LOẠI RÁC */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Phân loại rác thải</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.wasteTypesScroll}
+        >
+          {WASTE_TYPES.map((waste) => (
+            <TouchableOpacity
+              key={waste.type}
+              style={[
+                styles.wasteCard,
+                { borderColor: waste.color },
+                selectedType === waste.type && {
+                  backgroundColor: waste.color + "15",
+                  borderWidth: 2,
+                },
+              ]}
+              onPress={() => setSelectedType(waste.type)}
+            >
+              <Ionicons name={waste.icon} size={32} color={waste.color} />
+              <Text style={[styles.wasteCardTitle, { color: waste.color }]}>
+                {waste.type}
+              </Text>
+              <Text style={styles.wasteCardDesc}>{waste.description}</Text>
+              {waste.hazardous && (
+                <View style={styles.hazardBadge}>
+                  <Ionicons name="warning" size={12} color="#E53935" />
+                  <Text style={styles.hazardText}>Nguy hại</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* CHI TIẾT RÁC */}
+      {selectedWasteInfo && (
+        <>
+          <View style={[styles.detailCard, { borderLeftColor: selectedWasteInfo.color }]}>
+            <View style={styles.detailHeader}>
+              <Ionicons name={selectedWasteInfo.icon} size={40} color={selectedWasteInfo.color} />
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={[styles.detailTitle, { color: selectedWasteInfo.color }]}>
+                  {selectedWasteInfo.type}
+                </Text>
+                <Text style={styles.detailDesc}>{selectedWasteInfo.description}</Text>
+              </View>
+            </View>
+
+            <View style={styles.detailSection}>
+              <Text style={styles.detailSectionTitle}>Hướng dẫn xử lý:</Text>
+              <Text style={styles.detailText}>{selectedWasteInfo.guide}</Text>
+            </View>
+
+            <View style={styles.detailSection}>
+              <Text style={styles.detailSectionTitle}>Mẹo hữu ích:</Text>
+              {selectedWasteInfo.tips.map((tip, index) => (
+                <View key={index} style={styles.tipItem}>
+                  <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                  <Text style={styles.tipText}>{tip}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.badges}>
+              {selectedWasteInfo.recyclable && (
+                <View style={[styles.badge, { backgroundColor: "#4CAF50" }]}>
+                  <Ionicons name="reload" size={14} color="#fff" />
+                  <Text style={styles.badgeText}>Tái chế được</Text>
+                </View>
+              )}
+              {selectedWasteInfo.hazardous && (
+                <View style={[styles.badge, { backgroundColor: "#E53935" }]}>
+                  <Ionicons name="warning" size={14} color="#fff" />
+                  <Text style={styles.badgeText}>Nguy hại</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* ĐỊA ĐIỂM THU GOM */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Địa điểm thu gom gần nhất</Text>
+            {loadingLocations ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#2e7d32" />
+                <Text style={styles.loadingText}>Đang tìm địa điểm...</Text>
+              </View>
+            ) : nearbyLocations.length === 0 ? (
+              <View style={styles.noLocationContainer}>
+                <Ionicons name="location-outline" size={48} color="#999" />
+                <Text style={styles.noLocationText}>Không tìm thấy địa điểm</Text>
+                <Text style={styles.noLocationSubText}>
+                  Vui lòng liên hệ chính quyền địa phương
+                </Text>
+              </View>
+            ) : (
+              nearbyLocations.map((loc, index) => (
+                <View key={loc.id || index} style={styles.locationCard}>
+                  <View style={styles.locationHeader}>
+                    <Ionicons name="location" size={24} color="#2e7d32" />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.locationName}>{loc.name}</Text>
+                      <Text style={styles.locationAddress}>{loc.address}</Text>
+                      <Text style={styles.locationDistance}>
+                        Cách bạn {loc.distance} km
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.actionButtonFull}
+                    onPress={() => openMap(loc.lat, loc.lon, loc.name)}
+                  >
+                    <Ionicons name="navigate" size={20} color="#fff" />
+                    <Text style={styles.actionButtonText}>Chỉ đường</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+        </>
+      )}
+
+      {/* MẸO CUỐI – KHÔNG BỊ CHE */}
+      <View style={styles.tipsCard}>
+        <Text style={styles.tipsTitle}>Mẹo bảo vệ môi trường</Text>
+        <Text style={styles.tipsText}>
+          • Giảm thiểu đồ nhựa dùng một lần{"\n"}
+          • Mang túi vải khi đi chợ{"\n"}
+          • Tái sử dụng trước khi vứt bỏ{"\n"}
+          • Phân loại rác tại nguồn = hành động xanh!
+        </Text>
+      </View>
+    </SafeAreaScrollView>
+  </>
+);
 }
 
 const styles = StyleSheet.create({
@@ -780,6 +742,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
+    marginTop: StatusBar.currentHeight || 0,
   },
   headerText: {
     fontSize: 18,
@@ -1068,6 +1031,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#2e7d32",
     marginTop: 4,
+    marginBottom: 8,
     fontWeight: "600",
   },
   locationPhone: {

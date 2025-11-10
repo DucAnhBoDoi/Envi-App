@@ -19,40 +19,58 @@ import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../context/UserContext";
 import * as Speech from "expo-speech";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OPENROUTER_API_KEY } from "@env";
 
 export default function ChatbotScreen() {
   const { addChatToHistory } = useContext(UserContext);
+  const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [ttsOn, setTtsOn] = useState(true);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const flatRef = useRef(null);
 
-  // 🔥 Không load từ chatHistory nữa - chat hiện tại độc lập
+  const tabBarHeight = 65 + insets.bottom;
+
   useEffect(() => {
     setMessages([]);
   }, []);
 
-  // 🧩 Dừng đọc khi rời màn hình
   useFocusEffect(
     useCallback(() => {
       return () => Speech.stop();
     }, [])
   );
 
-  // 🧩 Cuộn xuống cuối khi bàn phím mở
   useEffect(() => {
-    const keyboardShow = Keyboard.addListener("keyboardDidShow", () => {
-      setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
-    });
-    return () => keyboardShow.remove();
-  }, []);
+    const keyboardShowListener = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setTimeout(() => {
+          if (flatRef.current && messages.length > 0) {
+            flatRef.current.scrollToEnd({ animated: true });
+          }
+        }, 100);
+      }
+    );
+
+    const keyboardHideListener = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardHeight(0)
+    );
+
+    return () => {
+      keyboardShowListener.remove();
+      keyboardHideListener.remove();
+    };
+  }, [messages.length]);
 
   const callDeepSeekAPI = async (userMessage) => {
     const API_URL = "https://openrouter.ai/api/v1/chat/completions";
-
     const systemPrompt = `Bạn là một trợ lý AI chuyên về môi trường tại Việt Nam.
 Trả lời bằng tiếng Việt, thân thiện, ngắn gọn (2–3 câu), dễ hiểu, và thêm emoji phù hợp.`;
 
@@ -134,18 +152,10 @@ Trả lời bằng tiếng Việt, thân thiện, ngắn gọn (2–3 câu), d�
     }
   };
 
-
-  // 🔥 Xóa chỉ messages hiện tại, KHÔNG xóa lịch sử
   const handleClearCurrentChat = () => {
     Alert.alert("Xóa cuộc trò chuyện", "Bạn có chắc muốn xóa cuộc trò chuyện hiện tại không?", [
       { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: () => {
-          setMessages([]);
-        },
-      },
+      { text: "Xóa", style: "destructive", onPress: () => setMessages([]) },
     ]);
   };
 
@@ -236,7 +246,10 @@ Trả lời bằng tiếng Việt, thân thiện, ngắn gọn (2–3 câu), d�
             data={messages}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + 70 }
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           />
@@ -245,14 +258,17 @@ Trả lời bằng tiếng Việt, thân thiện, ngắn gọn (2–3 câu), d�
 
       {/* 💬 Input */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <View style={styles.inputContainer}>
+        <View style={[
+          styles.inputContainer,
+          { marginBottom: keyboardHeight > 0 ? keyboardHeight -230 : tabBarHeight }
+        ]}>
           <View style={styles.inputRow}>
             <TouchableOpacity
               style={[styles.ttsBtn, ttsOn && styles.ttsBtnActive]}
-              onPress={() => setTtsOn((s) => !s)}
+              onPress={() => setTtsOn(s => !s)}
             >
               <Ionicons
                 name={ttsOn ? "volume-high" : "volume-mute"}
@@ -308,10 +324,9 @@ const styles = StyleSheet.create({
   chatBody: { flex: 1 },
   listContent: { padding: 16, paddingBottom: 12 },
 
-  // 🧩 Cố định màn chào
   fixedEmptyContainer: {
     position: "absolute",
-    top: "10%",
+    top: "5%",
     left: 0,
     right: 0,
     alignItems: "center",
@@ -340,7 +355,6 @@ const styles = StyleSheet.create({
   },
   quickText: { fontSize: 14, color: "#2e7d32", textAlign: "center" },
 
-  // Tin nhắn
   messageWrapper: {
     maxWidth: "85%",
     marginBottom: 12,
@@ -369,7 +383,6 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 14, color: "#333", lineHeight: 20 },
   messageTime: { fontSize: 10, color: "#999", marginTop: 6, textAlign: "right" },
 
-  // Input
   inputContainer: {
     backgroundColor: "#fff",
     borderTopWidth: 1,
@@ -378,9 +391,11 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 12,
     gap: 8,
+    minHeight: 64,
   },
   ttsBtn: {
     width: 44,
