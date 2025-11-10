@@ -15,7 +15,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ducanhbodoi7204.enviapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +31,17 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#2e7d32",
+          "sounds": [
+            "./assets/notification-sound.mp3"
+          ]
+        }
+      ]
     ]
   }
 }
