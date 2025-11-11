@@ -57,6 +57,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Đăng nhập bằng Google (Firebase đã xác thực sẵn)
+  const signInWithGoogle = async (user) => {
+    try {
+      // user từ firebase đã đăng nhập rồi
+      setUser(user);
+      setGuestMode(false);
+      await AsyncStorage.setItem("user", JSON.stringify(user));
+      await AsyncStorage.removeItem("guestUser");
+      console.log("✅ Lưu thông tin Google user vào context:", user.displayName);
+      return { success: true };
+    } catch (error) {
+      console.log("❌ Lỗi khi lưu Google user:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
 
   // Đăng nhập với email/mật khẩu
   const signInWithEmail = async (email, password) => {

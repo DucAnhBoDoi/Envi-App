@@ -57,7 +57,6 @@ export default function AuthScreen({ navigation }) {
   const { handleGoogleSignIn } = useGoogleAuth(signInWithGoogle);
 
 
-
   const handleSignUp = async () => {
     if (!email) return Alert.alert("Lỗi", "Vui lòng nhập email để đăng ký.");
     if (!password) return Alert.alert("Lỗi", "Vui lòng nhập mật khẩu.");
