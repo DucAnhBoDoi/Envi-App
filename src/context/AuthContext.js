@@ -167,6 +167,7 @@ export const AuthProvider = ({ children }) => {
         signInWithEmail,
         signInWithGoogle,
         signInAsGuest,
+        signInWithGoogle,
         resetPassword,
         logout,
       }}
