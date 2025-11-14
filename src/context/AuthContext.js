@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.log("🔥 Lỗi đăng ký:", error.code);
-      return { success: false, errorCode: error.code }; // ✅ thêm dòng này
+      return { success: false, errorCode: error.code };
     }
   };
 
@@ -65,10 +65,10 @@ export const AuthProvider = ({ children }) => {
       setGuestMode(false);
       await AsyncStorage.setItem("user", JSON.stringify(user));
       await AsyncStorage.removeItem("guestUser");
-      console.log("✅ Lưu thông tin Google user vào context:", user.displayName);
+      console.log("Lưu thông tin Google user vào context:", user.displayName);
       return { success: true };
     } catch (error) {
-      console.log("❌ Lỗi khi lưu Google user:", error);
+      console.log("Lỗi khi lưu Google user:", error);
       return { success: false, error: error.message };
     }
   };
@@ -82,22 +82,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.log("🔥 Lỗi đăng nhập:", error.code);
       return { success: false, errorCode: error.code }; // ✅ TRẢ RA errorCode đúng
-    }
-  };
-
-  // Đăng nhập bằng Google (Firebase đã xác thực sẵn)
-  const signInWithGoogle = async (user) => {
-    try {
-      // user từ firebase đã đăng nhập rồi
-      setUser(user);
-      setGuestMode(false);
-      await AsyncStorage.setItem("user", JSON.stringify(user));
-      await AsyncStorage.removeItem("guestUser");
-      console.log("✅ Lưu thông tin Google user vào context:", user.displayName);
-      return { success: true };
-    } catch (error) {
-      console.log("❌ Lỗi khi lưu Google user:", error);
-      return { success: false, error: error.message };
     }
   };
 

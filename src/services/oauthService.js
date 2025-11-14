@@ -12,17 +12,14 @@ WebBrowser.maybeCompleteAuthSession();
 export const useGoogleAuth = (onLoginSuccess) => {
   const navigation = useNavigation();
 
-  // const clientId = "909703253627-u77vpm8b9us78ido97k533il0mkd96bh.apps.googleusercontent.com";
-
   const redirectUri = makeRedirectUri({
     useProxy: true,
-    scheme: "enviapp",
   });
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     expoClientId: "909703253627-r2ms4novvg7ljke93vvi53omqfigtko2.apps.googleusercontent.com",
-    iosClientId: "909703253627-hv253uu4su9palcj9m8n5ij2cpfdt14g.apps.googleusercontent.com",
-    // androidClientId: clientId,
+    iosClientId: "909703253627-krf2fltc6o122733an57f255a8qmjcqf.apps.googleusercontent.com",
+    androidClientId: "909703253627-v8nb45e8ehe6vk8prtr6sp7p6fdve23q.apps.googleusercontent.com",
     webClientId: "909703253627-u77vpm8b9us78ido97k533il0mkd96bh.apps.googleusercontent.com",
     redirectUri,
   });
@@ -47,7 +44,7 @@ export const useGoogleAuth = (onLoginSuccess) => {
 
   const handleGoogleSignIn = async () => {
     try {
-      await promptAsync();
+      await promptAsync({ useProxy: true });
     } catch (error) {
       console.error("Google SignIn error:", error);
     }
