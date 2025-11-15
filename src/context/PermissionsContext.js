@@ -4,23 +4,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { AuthContext } from "./AuthContext";
+import { Platform, Linking } from "react-native";
 
 export const PermissionsContext = createContext();
 
 export const PermissionsProvider = ({ children }) => {
     const { user, guestMode } = useContext(AuthContext);
 
-    // Trạng thái quyền
     const [permissions, setPermissions] = useState({
         location: false,
         notifications: false,
-        camera: false,
         dataSharing: false,
     });
 
     const [loading, setLoading] = useState(true);
 
-    // Load trạng thái quyền từ AsyncStorage
     useEffect(() => {
         loadPermissions();
     }, [user, guestMode]);
@@ -28,15 +26,7 @@ export const PermissionsProvider = ({ children }) => {
     const loadPermissions = async () => {
         try {
             setLoading(true);
-            const key = guestMode ? "guestPermissions" : `permissions_${user?.uid}`;
-            const saved = await AsyncStorage.getItem(key);
-
-            if (saved) {
-                setPermissions(JSON.parse(saved));
-            } else {
-                // Kiểm tra quyền hệ thống hiện tại
-                await checkSystemPermissions();
-            }
+            await checkSystemPermissions();
         } catch (error) {
             console.error("Lỗi load permissions:", error);
         } finally {
@@ -50,21 +40,31 @@ export const PermissionsProvider = ({ children }) => {
             const locationStatus = await Location.getForegroundPermissionsAsync();
             const notificationStatus = await Notifications.getPermissionsAsync();
 
+            const key = guestMode ? "guestPermissions" : `permissions_${user?.uid}`;
+            const saved = await AsyncStorage.getItem(key);
+            let dataSharingValue = false;
+
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                dataSharingValue = parsed.dataSharing || false;
+            }
+
             const newPermissions = {
                 location: locationStatus.granted,
                 notifications: notificationStatus.granted,
-                camera: false, // Sẽ check khi cần
-                dataSharing: false, // Mặc định không chia sẻ
+                dataSharing: dataSharingValue,
             };
 
             setPermissions(newPermissions);
-            await savePermissions(newPermissions);
+            await AsyncStorage.setItem(key, JSON.stringify(newPermissions));
+
+            return newPermissions;
         } catch (error) {
             console.error("Lỗi kiểm tra quyền:", error);
+            return permissions;
         }
     };
 
-    // Lưu trạng thái quyền
     const savePermissions = async (newPermissions) => {
         try {
             const key = guestMode ? "guestPermissions" : `permissions_${user?.uid}`;
@@ -74,15 +74,21 @@ export const PermissionsProvider = ({ children }) => {
         }
     };
 
-    // Request quyền vị trí
+    // Mở Settings
+    const openAppSettings = () => {
+        if (Platform.OS === "ios") {
+            Linking.openURL("app-settings:");
+        } else {
+            Linking.openSettings();
+        }
+    };
+
     const requestLocationPermission = async () => {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
             const granted = status === "granted";
 
-            const newPermissions = { ...permissions, location: granted };
-            setPermissions(newPermissions);
-            await savePermissions(newPermissions);
+            await checkSystemPermissions();
 
             return { success: granted };
         } catch (error) {
@@ -91,15 +97,12 @@ export const PermissionsProvider = ({ children }) => {
         }
     };
 
-    // Request quyền thông báo
     const requestNotificationPermission = async () => {
         try {
             const { status } = await Notifications.requestPermissionsAsync();
             const granted = status === "granted";
 
-            const newPermissions = { ...permissions, notifications: granted };
-            setPermissions(newPermissions);
-            await savePermissions(newPermissions);
+            await checkSystemPermissions();
 
             return { success: granted };
         } catch (error) {
@@ -108,7 +111,29 @@ export const PermissionsProvider = ({ children }) => {
         }
     };
 
-    // Toggle chia sẻ dữ liệu
+    const toggleLocationPermission = async () => {
+        if (!permissions.location) {
+            // Chưa bật → Request quyền
+            return await requestLocationPermission();
+        } else {
+            // Đã bật → Mở Settings để user tắt
+            openAppSettings();
+            return { success: false, requireSettings: true };
+        }
+    };
+
+    const toggleNotificationPermission = async () => {
+        if (!permissions.notifications) {
+            // Chưa bật → Request quyền
+            return await requestNotificationPermission();
+        } else {
+            // Đã bật → Mở Settings để user tắt
+            openAppSettings();
+            return { success: false, requireSettings: true };
+        }
+    };
+
+    // Toggle chia sẻ dữ liệu (APP-LEVEL)
     const toggleDataSharing = async () => {
         try {
             const newValue = !permissions.dataSharing;
@@ -123,13 +148,12 @@ export const PermissionsProvider = ({ children }) => {
         }
     };
 
-    // Revoke tất cả quyền (khi xóa tài khoản)
+    // Revoke tất cả quyền
     const revokeAllPermissions = async () => {
         try {
             const resetPermissions = {
                 location: false,
                 notifications: false,
-                camera: false,
                 dataSharing: false,
             };
             setPermissions(resetPermissions);
@@ -151,9 +175,12 @@ export const PermissionsProvider = ({ children }) => {
                 loading,
                 requestLocationPermission,
                 requestNotificationPermission,
+                toggleLocationPermission,
+                toggleNotificationPermission,
                 toggleDataSharing,
                 revokeAllPermissions,
                 checkSystemPermissions,
+                openAppSettings,
             }}
         >
             {children}

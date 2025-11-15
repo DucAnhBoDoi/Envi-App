@@ -1,5 +1,5 @@
-// src/screens/ProfileScreen.js
-import React, { useContext, useState } from "react";
+// src/screens/ProfileScreen.js - FIXED VERSION
+import React, { useContext, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -34,15 +34,23 @@ export default function ProfileScreen({ navigation }) {
 
   const {
     permissions,
-    requestLocationPermission,
-    requestNotificationPermission,
+    toggleLocationPermission,
+    toggleNotificationPermission,
     toggleDataSharing,
+    checkSystemPermissions,
   } = useContext(PermissionsContext);
 
-  // State cho modal xóa tài khoản
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // Refresh permissions khi vào màn hình và khi quay lại từ Settings
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkSystemPermissions();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -89,12 +97,10 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  // XÓA TÀI KHOẢN HOÀN TOÀN
   const handleDeleteAccount = async () => {
     setDeleting(true);
 
     try {
-      // Bước 1: Xóa dữ liệu Firestore (nếu không phải guest)
       if (!guestMode && user?.uid) {
         const firestoreResult = await deleteAllUserData(user.uid);
         if (!firestoreResult.success) {
@@ -104,7 +110,6 @@ export default function ProfileScreen({ navigation }) {
         }
       }
 
-      // Bước 2: Xóa tài khoản Firebase Auth
       const authResult = await deleteAccount(
         !guestMode && user?.providerData?.[0]?.providerId === "password"
           ? deletePassword
@@ -119,7 +124,6 @@ export default function ProfileScreen({ navigation }) {
           [{ text: "OK" }]
         );
       } else {
-        // Xử lý lỗi
         if (authResult.requirePassword) {
           Alert.alert("Yêu cầu xác thực", "Vui lòng nhập mật khẩu để xác nhận");
         } else if (authResult.requireReauth) {
@@ -146,7 +150,7 @@ export default function ProfileScreen({ navigation }) {
 
   const openDeleteModal = () => {
     Alert.alert(
-      "CẢNH BÁO NGHIÊM TRỌNG ⚠️",
+      "⚠️ CẢNH BÁO NGHIÊM TRỌNG",
       guestMode
         ? "Tất cả dữ liệu khách sẽ bị XÓA VĨNH VIỄN!\n\n• Lịch sử báo cáo\n• Lịch sử chat\n• Cài đặt cá nhân\n\nKHÔNG THỂ KHÔI PHỤC!\n\nBạn có chắc chắn?"
         : "Hành động này sẽ:\n\n• Xóa vĩnh viễn tài khoản Firebase\n• Xóa TẤT CẢ bài viết, comment, nhóm\n• Xóa lịch sử báo cáo và chat\n• KHÔNG THỂ KHÔI PHỤC\n\nBạn có chắc chắn?",
@@ -161,22 +165,80 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  // Toggle permissions
+  // ✅ FIXED: Toggle permissions với UX rõ ràng hơn
   const handleToggleLocation = async () => {
     if (!permissions.location) {
-      const result = await requestLocationPermission();
-      if (!result.success) {
-        Alert.alert("Từ chối", "Bạn đã từ chối quyền truy cập vị trí");
-      }
+      // Chưa bật → Yêu cầu bật
+      Alert.alert(
+        "📍 Bật quyền vị trí",
+        "Ứng dụng cần quyền vị trí để:\n\n🍃 Hiển thị AQI khu vực của bạn\n\n🏡 Xác định vị trí khi báo cáo vi phạm",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Cấp quyền",
+            onPress: async () => {
+              const result = await toggleLocationPermission();
+              if (result.success) {
+                Alert.alert("Thành công", "Đã bật quyền vị trí");
+                await checkSystemPermissions();
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Đã bật → Hướng dẫn tắt
+      Alert.alert(
+        "Tắt quyền vị trí?",
+        "Để tắt quyền vị trí, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Mở Cài đặt",
+            onPress: async () => {
+              await toggleLocationPermission();
+            },
+          },
+        ]
+      );
     }
   };
 
   const handleToggleNotification = async () => {
     if (!permissions.notifications) {
-      const result = await requestNotificationPermission();
-      if (!result.success) {
-        Alert.alert("Từ chối", "Bạn đã từ chối quyền thông báo");
-      }
+      // Chưa bật → Yêu cầu bật
+      Alert.alert(
+        "Bật thông báo",
+        "Ứng dụng cần quyền thông báo để:\n\n⚠️ Cảnh báo khi AQI vượt ngưỡng\n\n📢 Thông báo cập nhật báo cáo của bạn",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Cấp quyền",
+            onPress: async () => {
+              const result = await toggleNotificationPermission();
+              if (result.success) {
+                Alert.alert("Thành công", "Đã bật thông báo");
+                await checkSystemPermissions();
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Đã bật → Hướng dẫn tắt
+      Alert.alert(
+        "🔔 Tắt thông báo?",
+        "Để tắt thông báo, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Mở Cài đặt",
+            onPress: async () => {
+              await toggleNotificationPermission();
+            },
+          },
+        ]
+      );
     }
   };
 
@@ -184,10 +246,10 @@ export default function ProfileScreen({ navigation }) {
     const result = await toggleDataSharing();
     if (result.success) {
       Alert.alert(
-        result.enabled ? "Đã bật" : "Đã tắt",
+        result.enabled ? "Chia sẻ dữ liệu đã bật " : "Chia sẻ dữ liệu đã tắt",
         result.enabled
-          ? "App có thể sử dụng dữ liệu của bạn để cải thiện trải nghiệm"
-          : "Dữ liệu cá nhân sẽ không được chia sẻ"
+          ? "🌍 App có thể sử dụng dữ liệu của bạn để cải thiện trải nghiệm"
+          : "👤 Dữ liệu cá nhân sẽ không được chia sẻ"
       );
     }
   };
@@ -294,14 +356,13 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
-      {/* 🔒 QUYỀN RIÊNG TƯ & BẢO MẬT */}
+      {/* QUYỀN RIÊNG TƯ & BẢO MẬT */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="shield-checkmark" size={24} color="#2e7d32" />
           <Text style={styles.sectionTitle}>Quyền riêng tư & Bảo mật</Text>
         </View>
 
-        {/* FR-7.1: Thông báo mã hóa */}
         <View style={styles.encryptionBanner}>
           <Ionicons name="lock-closed" size={20} color="#2e7d32" />
           <Text style={styles.encryptionText}>
@@ -309,15 +370,17 @@ export default function ProfileScreen({ navigation }) {
           </Text>
         </View>
 
-        {/* FR-7.3: Quản lý quyền */}
         <View style={styles.permissionCard}>
+          {/* Quyền vị trí */}
           <View style={styles.permissionRow}>
             <View style={styles.permissionInfo}>
               <Ionicons name="location" size={22} color="#E53935" />
               <View style={styles.permissionText}>
                 <Text style={styles.permissionTitle}>Vị trí</Text>
                 <Text style={styles.permissionDesc}>
-                  Cho phép sử dụng vị trí để báo cáo và xem AQI
+                  {permissions.location
+                    ? "Đã bật - Nhấn để vào Cài đặt và tắt"
+                    : "Chưa bật - Nhấn để cấp quyền"}
                 </Text>
               </View>
             </View>
@@ -329,13 +392,16 @@ export default function ProfileScreen({ navigation }) {
             />
           </View>
 
+          {/* Quyền thông báo */}
           <View style={styles.permissionRow}>
             <View style={styles.permissionInfo}>
               <Ionicons name="notifications" size={22} color="#FF9800" />
               <View style={styles.permissionText}>
                 <Text style={styles.permissionTitle}>Thông báo</Text>
                 <Text style={styles.permissionDesc}>
-                  Nhận cảnh báo về chất lượng không khí
+                  {permissions.notifications
+                    ? "Đã bật - Nhấn để vào Cài đặt và tắt"
+                    : "Chưa bật - Nhấn để cấp quyền"}
                 </Text>
               </View>
             </View>
@@ -347,6 +413,7 @@ export default function ProfileScreen({ navigation }) {
             />
           </View>
 
+          {/* Chia sẻ dữ liệu (App-level, có thể tắt trực tiếp) */}
           <View style={styles.permissionRow}>
             <View style={styles.permissionInfo}>
               <Ionicons name="share-social" size={22} color="#1976D2" />
@@ -416,7 +483,6 @@ export default function ProfileScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
 
-        {/* FR-7.2: XÓA TÀI KHOẢN */}
         <TouchableOpacity
           style={[styles.settingButton, styles.deleteAccountButton]}
           onPress={openDeleteModal}
@@ -593,8 +659,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
-
-  // 🔒 Privacy & Security
   encryptionBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -607,7 +671,6 @@ const styles = StyleSheet.create({
     borderLeftColor: "#2e7d32",
   },
   encryptionText: { flex: 1, fontSize: 13, color: "#2e7d32", fontWeight: "600" },
-
   permissionCard: {
     backgroundColor: "#f9f9f9",
     borderRadius: 12,
@@ -628,7 +691,6 @@ const styles = StyleSheet.create({
   permissionText: { flex: 1 },
   permissionTitle: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 4 },
   permissionDesc: { fontSize: 12, color: "#666" },
-
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -689,8 +751,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   logoutButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

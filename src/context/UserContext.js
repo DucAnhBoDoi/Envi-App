@@ -56,7 +56,7 @@ export const UserProvider = ({ children }) => {
   const [userGroups, setUserGroups] = useState([]);
 
   /**
-   * ✅ uploadToCloudinary - UPLOAD MIỄN PHÍ
+   * uploadToCloudinary - UPLOAD MIỄN PHÍ
    * Không cần API key, hoàn toàn free trong giới hạn 25GB/tháng
    */
   const uploadToCloudinary = async (uri, resourceType = "image") => {
