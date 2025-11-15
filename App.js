@@ -1,18 +1,21 @@
+// App.js
 import React from "react";
-import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "./src/context/AuthContext";
-import { UserProvider } from "./src/context/UserContext"; 
+import { UserProvider } from "./src/context/UserContext";
+import { PermissionsProvider } from "./src/context/PermissionsContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 
 export default function App() {
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaProvider>
       <AuthProvider>
-        <UserProvider> 
-          <AppNavigator />
-        </UserProvider>
+        <PermissionsProvider>
+          <UserProvider>
+            <AppNavigator />
+          </UserProvider>
+        </PermissionsProvider>
       </AuthProvider>
-    </>
+    </SafeAreaProvider>
   );
 }
