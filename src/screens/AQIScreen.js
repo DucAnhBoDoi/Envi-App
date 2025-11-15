@@ -1,3 +1,4 @@
+//AQIScreen.js
 import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   View,
@@ -18,19 +19,15 @@ import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../context/UserContext";
+import { PermissionsContext } from "../context/PermissionsContext";
 import { OPENWEATHER_API_KEY } from "@env";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
-
-
-// Ẩn cảnh báo expo-notifications trong Expo Go
 LogBox.ignoreLogs([
   "expo-notifications: Android Push notifications",
   "`expo-notifications` functionality is not fully supported in Expo Go",
 ]);
 
-
-// Cấu hình hiển thị thông báo
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -41,6 +38,8 @@ Notifications.setNotificationHandler({
 
 export default function AQIScreen() {
   const { aqiThreshold, setAqiThreshold } = useContext(UserContext);
+  const { permissions, checkSystemPermissions, toggleLocationPermission } = useContext(PermissionsContext);
+
   const [location, setLocation] = useState(null);
   const [aqiData, setAqiData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +71,6 @@ export default function AQIScreen() {
     if (location) fetchAQI(location.latitude, location.longitude);
   }, [location]);
 
-  // 🔔 Đăng ký quyền thông báo (chỉ chạy ngoài Expo Go)
   const registerForPushNotifications = async () => {
     if (Constants.appOwnership === "expo") {
       console.log("⚠️ Bỏ qua đăng ký push notification trong Expo Go");
@@ -93,17 +91,45 @@ export default function AQIScreen() {
     }
   };
 
-
-  // 📍 Lấy vị trí + địa chỉ (Quận + Thành phố)
+  // ✅ Lấy vị trí với kiểm tra quyền từ Context
   const getLocation = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Cảnh báo", "Cần quyền vị trí để hiển thị AQI.");
-        setLoading(false);
+      // Refresh permissions trước
+      await checkSystemPermissions();
+
+      if (!permissions.location) {
+        Alert.alert(
+          "Cần quyền vị trí",
+          "Ứng dụng cần quyền vị trí để hiển thị AQI khu vực của bạn.",
+          [
+            { text: "Hủy", style: "cancel", onPress: () => setLoading(false) },
+            {
+              text: "Cấp quyền",
+              onPress: async () => {
+                const result = await toggleLocationPermission();
+                if (result.success) {
+                  await getLocationData();
+                } else {
+                  setLoading(false);
+                }
+              }
+            },
+          ]
+        );
         return;
       }
 
+      await getLocationData();
+    } catch (e) {
+      console.error("Lỗi vị trí:", e);
+      Alert.alert("Lỗi", "Không thể lấy vị trí thiết bị.");
+      setLoading(false);
+    }
+  };
+
+  const getLocationData = async () => {
+    try {
+      setLoading(true);
       const loc = await Location.getCurrentPositionAsync({});
       const reverseGeo = await Location.reverseGeocodeAsync(loc.coords);
 
@@ -117,21 +143,19 @@ export default function AQIScreen() {
       }
 
       setLocation({ ...loc.coords, address: formattedAddress });
-    } catch (e) {
-      console.error("Lỗi vị trí:", e);
-      Alert.alert("Lỗi", "Không thể lấy vị trí thiết bị.");
+    } catch (error) {
+      console.error("Lỗi lấy vị trí:", error);
+      Alert.alert("Lỗi", "Không thể lấy vị trí hiện tại");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🎚️ Quy đổi AQI chuẩn
   const convertAqiToScale = (aqi) => {
     const map = { 1: 50, 2: 100, 3: 150, 4: 200, 5: 300 };
     return map[aqi] || 0;
   };
 
-  // 🌫️ Lấy dữ liệu AQI và thời tiết
   const fetchAQI = async (lat, lon) => {
     try {
       setLoading(true);
@@ -165,7 +189,6 @@ export default function AQIScreen() {
           weatherIcon: `https://openweathermap.org/img/wn/${weather.icon}@2x.png`,
         });
 
-        // 🚨 Kiểm tra vượt ngưỡng cảnh báo
         if (aqi >= aqiThreshold) {
           Alert.alert("⚠️ AQI cao", `Chất lượng không khí ${getAQIInfo(aqi).level}.`);
           await sendAQINotification(aqi);
@@ -178,7 +201,6 @@ export default function AQIScreen() {
     }
   };
 
-  // 📲 Gửi thông báo nếu AQI cao
   const sendAQINotification = async (aqi) => {
     const now = Date.now();
     if (now - lastNotificationTime < 30 * 60 * 1000) return;
@@ -223,7 +245,6 @@ export default function AQIScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
       <SafeAreaScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <Ionicons name="leaf-outline" size={32} color="#2e7d32" />
           <Text style={styles.headerText}>Chỉ số AQI hiện tại</Text>
@@ -238,7 +259,6 @@ export default function AQIScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Card AQI */}
         <View style={[styles.card, { borderLeftColor: info.color }]}>
           <Text style={styles.emoji}>{info.emoji}</Text>
           <Text style={[styles.aqiValue, { color: info.color }]}>{displayedAqi}</Text>
@@ -246,7 +266,6 @@ export default function AQIScreen() {
           <Text style={styles.advice}>{info.advice}</Text>
         </View>
 
-        {/* Weather Card */}
         {aqiData?.tempC && (
           <View style={styles.weatherCard}>
             <Image source={{ uri: aqiData.weatherIcon }} style={styles.weatherIcon} />
@@ -263,7 +282,6 @@ export default function AQIScreen() {
           </View>
         )}
 
-        {/* Air Components */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Air Components</Text>
           {aqiData ? (
@@ -278,7 +296,6 @@ export default function AQIScreen() {
           )}
         </View>
 
-        {/* Slider */}
         <View style={styles.section}>
           <View style={styles.sliderHeader}>
             <Text style={styles.sectionTitle}>AQI Alert Threshold</Text>
@@ -371,6 +388,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, color: "#555" },
   value: { fontSize: 14, color: "#333", fontWeight: "500" },
   noData: { textAlign: "center", fontSize: 14, color: "#999" },
+  sliderHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  sliderValue: { fontSize: 18, fontWeight: "bold", color: "#2e7d32" },
   sliderHint: {
     fontSize: 13,
     color: "#666",

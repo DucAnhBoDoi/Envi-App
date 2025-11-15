@@ -12,6 +12,7 @@ import {
   getDocs,
   query,
   orderBy,
+  where,
   serverTimestamp,
   updateDoc,
   deleteDoc,
@@ -55,7 +56,7 @@ export const UserProvider = ({ children }) => {
   const [userGroups, setUserGroups] = useState([]);
 
   /**
-   * ✅ uploadToCloudinary - UPLOAD MIỄN PHÍ
+   * uploadToCloudinary - UPLOAD MIỄN PHÍ
    * Không cần API key, hoàn toàn free trong giới hạn 25GB/tháng
    */
   const uploadToCloudinary = async (uri, resourceType = "image") => {
@@ -619,6 +620,81 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  const deleteAllUserData = async (uid) => {
+    if (!uid) return { success: false, error: "Không có UID" };
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Xóa user profile
+      const userDocRef = doc(db, "users", uid);
+      batch.delete(userDocRef);
+
+      // 2. Xóa tất cả bài viết của user
+      const postsQuery = query(
+        collection(db, "communityPosts"),
+        where("author.uid", "==", uid)
+      );
+      const postsSnap = await getDocs(postsQuery);
+      postsSnap.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 3. Xóa user khỏi tất cả groups
+      const groupsQuery = query(
+        collection(db, "communityGroups"),
+        where("memberUids", "array-contains", uid)
+      );
+      const groupsSnap = await getDocs(groupsQuery);
+      groupsSnap.docs.forEach((docSnap) => {
+        batch.update(docSnap.ref, {
+          memberUids: arrayRemove(uid),
+          members: increment(-1),
+        });
+      });
+
+      // 4. Xóa các groups do user tạo
+      const createdGroupsQuery = query(
+        collection(db, "communityGroups"),
+        where("creator.uid", "==", uid)
+      );
+      const createdGroupsSnap = await getDocs(createdGroupsQuery);
+      createdGroupsSnap.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 5. Xóa comments của user (cập nhật các posts có comment của user)
+      const allPostsSnap = await getDocs(collection(db, "communityPosts"));
+      allPostsSnap.docs.forEach((docSnap) => {
+        const post = docSnap.data();
+        const comments = post.comments || [];
+        const filteredComments = comments.filter(c => c.uid !== uid);
+
+        if (filteredComments.length !== comments.length) {
+          batch.update(docSnap.ref, { comments: filteredComments });
+        }
+      });
+
+      // 6. Xóa likes của user
+      allPostsSnap.docs.forEach((docSnap) => {
+        const post = docSnap.data();
+        if (post.likes?.includes(uid)) {
+          batch.update(docSnap.ref, { likes: arrayRemove(uid) });
+        }
+      });
+
+      // Thực thi batch
+      await batch.commit();
+
+      console.log("✅ Đã xóa toàn bộ dữ liệu Firestore của user:", uid);
+      return { success: true };
+
+    } catch (error) {
+      console.error("❌ Lỗi xóa dữ liệu Firestore:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // Effects
   useEffect(() => {
     if (user || guestMode) {
@@ -670,7 +746,8 @@ export const UserProvider = ({ children }) => {
         createGroup,
         joinGroup,
         deleteGroup,
-        uploadToCloudinary, // Export để dùng ở nơi khác nếu cần
+        uploadToCloudinary,
+        deleteAllUserData,
       }}
     >
       {children}
