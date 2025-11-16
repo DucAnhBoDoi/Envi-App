@@ -6,7 +6,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context"; // THÊM DÒNG NÀY
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Import Screens
 import AuthScreen from "../screens/AuthScreen";
@@ -20,17 +20,22 @@ import ReportHistoryScreen from "../screens/ReportHistoryScreen";
 import ChatHistoryScreen from "../screens/ChatHistoryScreen";
 import ChatbotScreen from "../screens/ChatbotScreen";
 
-// MỚI: 3 màn hình chính từ Home
+// 3 màn hình chính từ Home (cũ)
 import NotificationsScreen from "../screens/NotificationsScreen";
 import CommunityScreen from "../screens/CommunityScreen";
 import LearningScreen from "../screens/LearningScreen";
 import NotificationDetailScreen from "../screens/NotificationDetailScreen";
 
+// 🆕 3 màn hình mới: Gamification, Map, Analytics
+import GamificationScreen from "../screens/GamificationScreen";
+import MapScreen from "../screens/MapScreen";
+import AnalyticsScreen from "../screens/AnalyticsScreen";
+
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function MainTabs() {
-  const insets = useSafeAreaInsets(); // LẤY KHOẢNG CÁCH AN TOÀN (rất quan trọng!)
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -54,10 +59,10 @@ function MainTabs() {
           backgroundColor: "#fff",
           borderTopWidth: 1,
           borderTopColor: "#f0f0f0",
-          height: 65 + insets.bottom,        // Tăng chiều cao để chứa safe area
-          paddingBottom: 10 + insets.bottom, // Đẩy nội dung lên khỏi nút Home
+          height: 65 + insets.bottom,
+          paddingBottom: 10 + insets.bottom,
           paddingTop: 8,
-          position: "absolute",              // QUAN TRỌNG NHẤT: giữ tab cố định
+          position: "absolute",
           shadowColor: "#000",
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.1,
@@ -93,14 +98,11 @@ function MainTabs() {
         component={ReportScreen} 
         options={{ title: "Báo cáo" }} 
       />
-      
-      {/* Chatbot ở giữa – đẹp lung linh */}
       <Tab.Screen
         name="Chatbot"
         component={ChatbotScreen}
         options={{ title: "Chatbot" }}
       />
-      
       <Tab.Screen 
         name="Tài khoản" 
         component={ProfileScreen} 
@@ -129,84 +131,123 @@ export default function AppNavigator() {
             {/* Tab chính */}
             <Stack.Screen name="MainTabs" component={MainTabs} />
 
-            {/* Các màn hình con */}
+            {/* Các màn hình con - Profile */}
             <Stack.Screen
               name="EditProfile"
               component={EditProfileScreen}
               options={{
-                headerShown: true,
+                headerShown: false,
                 title: "Chỉnh sửa hồ sơ",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
+                animation: "slide_from_right",
               }}
             />
             <Stack.Screen
               name="ReportHistory"
               component={ReportHistoryScreen}
               options={{
-                headerShown: true,
+                headerShown: false,
                 title: "Lịch sử báo cáo",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
+                animation: "slide_from_right",
+
               }}
             />
             <Stack.Screen
               name="ChatHistory"
               component={ChatHistoryScreen}
               options={{
-                headerShown: true,
+                headerShown: false,
                 title: "Lịch sử chat",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
+                animation: "slide_from_right",
+
               }}
             />
 
-            {/* 3 màn hình chính */}
+            {/* 3 màn hình chính từ Home (cũ) */}
             <Stack.Screen
               name="Notifications"
               component={NotificationsScreen}
               options={{
-                headerShown: true,
+                headerShown: false,
                 title: "Thông báo",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
+                animation: "slide_from_right",
               }}
             />
             <Stack.Screen
               name="Community"
               component={CommunityScreen}
               options={{
-                headerShown: true,
+                headerShown: false,
                 title: "Cộng đồng",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
+                animation: "slide_from_right",
               }}
             />
             <Stack.Screen
               name="Learning"
               component={LearningScreen}
               options={{
-                headerShown: true,
+                headerShown: false,
                 title: "Học tập",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
+                animation: "slide_from_right",
               }}
             />
             <Stack.Screen
               name="NotificationDetail"
               component={NotificationDetailScreen}
               options={{
-                headerShown: true,
+                headerShown: false,
                 title: "Chi tiết thông báo",
                 headerStyle: { backgroundColor: "#fff" },
                 headerTintColor: "#2e7d32",
                 headerTitleStyle: { fontWeight: "bold" },
+                animation: "slide_from_right",
+
+              }}
+            />
+
+            {/* 🆕 3 màn hình mới: Gamification, Map, Analytics */}
+            <Stack.Screen
+              name="Gamification"
+              component={GamificationScreen}
+              options={{
+                headerShown: false, // Tự xử lý header trong component
+                presentation: "card",
+                animation: "slide_from_right",
+              }}
+            />
+            <Stack.Screen
+              name="MapScreen"
+              component={MapScreen}
+              options={{
+                headerShown: false, // Tự xử lý header trong component
+                presentation: "card",
+                animation: "slide_from_right",
+              }}
+            />
+            <Stack.Screen
+              name="Analytics"
+              component={AnalyticsScreen}
+              options={{
+                headerShown: false, // Tự xử lý header trong component
+                presentation: "card",
+                animation: "slide_from_right",
               }}
             />
           </Stack.Group>

@@ -1,3 +1,4 @@
+// src/screens/EditProfileScreen.js
 import React, { useState, useContext, useEffect } from "react";
 import {
   View,
@@ -10,13 +11,13 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { UserContext } from "../context/UserContext";
 import { AuthContext } from "../context/AuthContext";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
-
 
 const REGIONS = [
   "Hà Nội", "Hồ Chí Minh", "Đà Nẵng", "Hải Phòng", "Cần Thơ", "An Giang",
@@ -46,20 +47,20 @@ export default function EditProfileScreen({ navigation }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
-    setDisplayName(userProfile.displayName || "");
-    setPhone(userProfile.phone || "");
-    setAddress(userProfile.address || "");
-    setDefaultRegion(userProfile.defaultRegion || "Hồ Chí Minh");
-    setBio(userProfile.bio || "");
-    setPhotoURL(userProfile.photoURL || "");
+    setDisplayName(userProfile?.displayName || "");
+    setPhone(userProfile?.phone || "");
+    setAddress(userProfile?.address || "");
+    setDefaultRegion(userProfile?.defaultRegion || "Hồ Chí Minh");
+    setBio(userProfile?.bio || "");
+    setPhotoURL(userProfile?.photoURL || "");
   }, [userProfile]);
 
-  // ✅ Chọn ảnh và UPLOAD LÊN CLOUDINARY NGAY
+  // Chọn ảnh + upload lên Cloudinary
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Cần quyền truy cập", "Vui lòng cấp quyền truy cập thư viện ảnh");
+        Alert.alert("Cần quyền", "Vui lòng cấp quyền truy cập thư viện ảnh");
         return;
       }
 
@@ -72,57 +73,42 @@ export default function EditProfileScreen({ navigation }) {
 
       if (!result.canceled) {
         const localUri = result.assets[0].uri;
-        
-        // Hiển thị preview ngay lập tức (dùng URI local)
         setPhotoURL(localUri);
-        
-        // Upload lên Cloudinary ngầm
         setUploadingAvatar(true);
-        
+
         try {
-          console.log("📤 Đang upload avatar lên Cloudinary...");
           const cloudinaryUrl = await uploadToCloudinary(localUri, "image");
-          
-          if (cloudinaryUrl && cloudinaryUrl.includes("cloudinary.com")) {
-            console.log("✅ Upload avatar thành công:", cloudinaryUrl.substring(0, 50));
+          if (cloudinaryUrl?.includes("cloudinary.com")) {
             setPhotoURL(cloudinaryUrl);
             Alert.alert("Thành công", "Ảnh đại diện đã được upload!");
           } else {
             throw new Error("URL không hợp lệ");
           }
         } catch (error) {
-          console.error("❌ Lỗi upload avatar:", error);
-          Alert.alert(
-            "Lỗi upload", 
-            "Không thể upload ảnh đại diện. Vui lòng kiểm tra kết nối Internet và thử lại."
-          );
-          // Revert về avatar cũ
-          setPhotoURL(userProfile.photoURL || "");
+          Alert.alert("Lỗi", "Không thể upload ảnh. Vui lòng thử lại.");
+          setPhotoURL(userProfile?.photoURL || "");
         } finally {
           setUploadingAvatar(false);
         }
       }
     } catch (error) {
-      console.error("❌ Lỗi chọn ảnh:", error);
       Alert.alert("Lỗi", "Không thể chọn ảnh");
     }
   };
 
-  // Lưu thay đổi
   const handleSave = async () => {
     if (!displayName.trim()) {
       Alert.alert("Lỗi", "Vui lòng nhập tên hiển thị");
       return;
     }
 
-    // Kiểm tra xem avatar có phải là local URI không
-    if (photoURL && !photoURL.includes("cloudinary.com") && !photoURL.includes("http")) {
+    if (photoURL && !photoURL.includes("cloudinary.com") && photoURL.includes("file://")) {
       Alert.alert(
         "Cảnh báo",
-        "Ảnh đại diện chưa được upload lên server. Bạn có muốn tiếp tục không?",
+        "Ảnh chưa được upload. Bạn có muốn tiếp tục không?",
         [
           { text: "Hủy", style: "cancel" },
-          { text: "Tiếp tục", onPress: () => saveProfile() }
+          { text: "Tiếp tục", onPress: saveProfile },
         ]
       );
       return;
@@ -133,7 +119,6 @@ export default function EditProfileScreen({ navigation }) {
 
   const saveProfile = async () => {
     setLoading(true);
-    
     try {
       const result = await updateUserProfile({
         displayName: displayName.trim(),
@@ -141,17 +126,16 @@ export default function EditProfileScreen({ navigation }) {
         address: address.trim(),
         defaultRegion,
         bio: bio.trim(),
-        photoURL, // Đây sẽ là Cloudinary URL nếu upload thành công
+        photoURL,
       });
 
       setLoading(false);
-
-      if (result.success) {
+      if (result?.success) {
         Alert.alert("Thành công", "Hồ sơ đã được cập nhật!", [
           { text: "OK", onPress: () => navigation.goBack() },
         ]);
       } else {
-        Alert.alert("Lỗi", result.error || "Không thể cập nhật hồ sơ");
+        Alert.alert("Lỗi", result?.error || "Không thể cập nhật hồ sơ");
       }
     } catch (error) {
       setLoading(false);
@@ -159,9 +143,11 @@ export default function EditProfileScreen({ navigation }) {
     }
   };
 
+  // LOADING SCREEN
   if (loading) {
     return (
       <View style={styles.centerContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
         <ActivityIndicator size="large" color="#2e7d32" />
         <Text style={styles.loadingText}>Đang lưu thay đổi...</Text>
       </View>
@@ -169,155 +155,137 @@ export default function EditProfileScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaScrollView style={styles.container}>
-      {/* Ảnh đại diện */}
-      <View style={styles.avatarSection}>
-        <TouchableOpacity 
-          onPress={pickImage} 
-          activeOpacity={0.8}
-          disabled={uploadingAvatar}
-        >
-          {photoURL ? (
-            <View>
-              <Image source={{ uri: photoURL }} style={styles.avatar} />
-              {uploadingAvatar && (
-                <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator size="small" color="#fff" />
-                </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+
+      {/* HEADER ĐỒNG BỘ 100% */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#222" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* NỘI DUNG */}
+      <SafeAreaScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Ảnh đại diện */}
+        <View style={styles.avatarSection}>
+          <TouchableOpacity onPress={pickImage} activeOpacity={0.8} disabled={uploadingAvatar}>
+            {photoURL ? (
+              <View>
+                <Image source={{ uri: photoURL }} style={styles.avatar} />
+                {uploadingAvatar && (
+                  <View style={styles.uploadingOverlay}>
+                    <ActivityIndicator size="small" color="#fff" />
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Ionicons name="person" size={60} color="#fff" />
+              </View>
+            )}
+            <View style={styles.cameraIcon}>
+              {uploadingAvatar ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={20} color="#fff" />
               )}
             </View>
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Ionicons name="person" size={60} color="#fff" />
+          </TouchableOpacity>
+
+          {uploadingAvatar && (
+            <Text style={styles.uploadingText}>Đang upload ảnh...</Text>
+          )}
+
+          {photoURL?.includes("cloudinary.com") && (
+            <View style={styles.uploadSuccessBadge}>
+              <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+              <Text style={styles.uploadSuccessText}>Đã lưu trên cloud</Text>
             </View>
           )}
-          <View style={styles.cameraIcon}>
-            {uploadingAvatar ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Ionicons name="camera" size={20} color="#fff" />
-            )}
-          </View>
-        </TouchableOpacity>
-        
-        {uploadingAvatar && (
-          <Text style={styles.uploadingText}>Đang upload ảnh...</Text>
-        )}
-        
-        {/* Hiển thị trạng thái upload */}
-        {photoURL && photoURL.includes("cloudinary.com") && (
-          <View style={styles.uploadSuccessBadge}>
-            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-            <Text style={styles.uploadSuccessText}>Đã lưu trên cloud</Text>
-          </View>
-        )}
-      </View>
+        </View>
 
-      {/* Thông tin cơ bản */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Thông tin cơ bản</Text>
-        <Input 
-          label="Tên hiển thị *" 
-          value={displayName} 
-          onChangeText={setDisplayName} 
-          placeholder="Nhập tên của bạn" 
-        />
-        <Input 
-          label="Số điện thoại" 
-          value={phone} 
-          onChangeText={setPhone} 
-          placeholder="Nhập số điện thoại" 
-          keyboardType="phone-pad" 
-        />
-        <Input 
-          label="Giới thiệu" 
-          value={bio} 
-          onChangeText={setBio} 
-          multiline 
-          placeholder="Viết vài dòng về bạn..." 
-        />
-      </View>
+        {/* Thông tin cơ bản */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Thông tin cơ bản</Text>
+          <Input label="Tên hiển thị *" value={displayName} onChangeText={setDisplayName} placeholder="Nhập tên của bạn" />
+          <Input label="Số điện thoại" value={phone} onChangeText={setPhone} placeholder="Nhập số điện thoại" keyboardType="phone-pad" />
+          <Input label="Giới thiệu" value={bio} onChangeText={setBio} multiline placeholder="Viết vài dòng về bạn..." />
+        </View>
 
-      {/* Địa chỉ */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Địa chỉ</Text>
+        {/* Địa chỉ */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Địa chỉ</Text>
 
-        <Text style={styles.label}>Khu vực mặc định *</Text>
-        <TouchableOpacity
-          style={styles.pickerButton}
-          onPress={() => setShowRegionPicker(!showRegionPicker)}
-        >
-          <Text style={styles.pickerButtonText}>{defaultRegion}</Text>
-          <Ionicons
-            name={showRegionPicker ? "chevron-up" : "chevron-down"}
-            size={22}
-            color="#444"
-          />
-        </TouchableOpacity>
+          <Text style={styles.label}>Khu vực mặc định *</Text>
+          <TouchableOpacity
+            style={styles.pickerButton}
+            onPress={() => setShowRegionPicker(!showRegionPicker)}
+          >
+            <Text style={styles.pickerButtonText}>{defaultRegion}</Text>
+            <Ionicons name={showRegionPicker ? "chevron-up" : "chevron-down"} size={22} color="#444" />
+          </TouchableOpacity>
 
-        {showRegionPicker && (
-          <ScrollView style={styles.regionList} nestedScrollEnabled>
-            {REGIONS.map((region) => (
-              <TouchableOpacity
-                key={region}
-                style={[
-                  styles.regionItem,
-                  defaultRegion === region && styles.regionItemSelected,
-                ]}
-                onPress={() => {
-                  setDefaultRegion(region);
-                  setShowRegionPicker(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.regionItemText,
-                    defaultRegion === region && styles.regionItemTextSelected,
-                  ]}
+          {showRegionPicker && (
+            <ScrollView style={styles.regionList} nestedScrollEnabled>
+              {REGIONS.map((region) => (
+                <TouchableOpacity
+                  key={region}
+                  style={[styles.regionItem, defaultRegion === region && styles.regionItemSelected]}
+                  onPress={() => {
+                    setDefaultRegion(region);
+                    setShowRegionPicker(false);
+                  }}
                 >
-                  {region}
-                </Text>
-                {defaultRegion === region && (
-                  <Ionicons name="checkmark-circle" size={20} color="#2e7d32" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
+                  <Text
+                    style={[
+                      styles.regionItemText,
+                      defaultRegion === region && styles.regionItemTextSelected,
+                    ]}
+                  >
+                    {region}
+                  </Text>
+                  {defaultRegion === region && (
+                    <Ionicons name="checkmark-circle" size={20} color="#2e7d32" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
-        <Input
-          label="Địa chỉ chi tiết"
-          value={address}
-          onChangeText={setAddress}
-          placeholder="Số nhà, đường, phường/xã..."
-          multiline
-        />
-      </View>
+          <Input
+            label="Địa chỉ chi tiết"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Số nhà, đường, phường/xã..."
+            multiline
+          />
+        </View>
 
-      {/* Nút lưu */}
-      <TouchableOpacity 
-        activeOpacity={0.8} 
-        onPress={handleSave} 
-        style={styles.saveButton}
-        disabled={uploadingAvatar}
-      >
-        <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
-        <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
-      </TouchableOpacity>
+        {/* Nút lưu */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleSave}
+          style={styles.saveButton}
+          disabled={uploadingAvatar}
+        >
+          <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
+          <Text style={styles.saveButtonText}>Lưu thay đổi</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity 
-        onPress={() => navigation.goBack()} 
-        style={styles.cancelButton}
-      >
-        <Text style={styles.cancelButtonText}>Hủy</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelButton}>
+          <Text style={styles.cancelButtonText}>Hủy</Text>
+        </TouchableOpacity>
 
-      <View style={{ height: 40 }} />
-    </SafeAreaScrollView>
+        <View style={{ height: 40 }} />
+      </SafeAreaScrollView>
+    </View>
   );
 }
 
-/* COMPONENT PHỤ */
+/* INPUT COMPONENT */
 const Input = ({ label, ...props }) => (
   <View style={styles.inputGroup}>
     <Text style={styles.label}>{label}</Text>
@@ -329,24 +297,56 @@ const Input = ({ label, ...props }) => (
   </View>
 );
 
-/* STYLES */
+/* STYLES - ĐÃ ĐỒNG BỘ HEADER */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    
+    backgroundColor: "#f8f9fa",
   },
+
+  // HEADER ĐỒNG BỘ
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: "#f8f9fa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#222",
+    marginLeft: 12,
+  },
+
+  scrollContent: {
+    paddingBottom: 20,
+  },
+
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fa",
   },
   loadingText: {
     marginTop: 10,
     color: "#666",
     fontSize: 14,
   },
+
+  // AVATAR
   avatarSection: {
     alignItems: "center",
     paddingVertical: 30,
@@ -358,13 +358,13 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     backgroundColor: "#e0e0e0",
-    justifyContent: "center",
-    alignItems: "center",
     borderWidth: 3,
     borderColor: "#2e7d32",
   },
   avatarPlaceholder: {
     backgroundColor: "#2e7d32",
+    justifyContent: "center",
+    alignItems: "center",
   },
   cameraIcon: {
     position: "absolute",
@@ -380,11 +380,7 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
   },
   uploadingOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 60,
     justifyContent: "center",
@@ -410,6 +406,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+
+  // SECTION
   section: {
     backgroundColor: "#fff",
     padding: 20,
@@ -443,6 +441,8 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: "top",
   },
+
+  // REGION PICKER
   pickerButton: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -485,6 +485,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#2e7d32",
   },
+
+  // BUTTONS
   saveButton: {
     flexDirection: "row",
     backgroundColor: "#2e7d32",
