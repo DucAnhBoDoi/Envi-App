@@ -9,6 +9,7 @@ import {
     Modal,
     Linking,
     Animated,
+    StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,7 +17,7 @@ import { Audio } from "expo-av";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
 import { AuthContext } from "../context/AuthContext"; // THÊM DÒNG NÀY
 
-export default function LearningScreen() {
+export default function LearningScreen({ navigation }) {
     const { guestMode } = useContext(AuthContext);
     const [activeTab, setActiveTab] = useState("library");
     const [showQuiz, setShowQuiz] = useState(false);
@@ -861,20 +862,50 @@ export default function LearningScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Tabs */}
-            <View style={styles.tabs}>
-                <TouchableOpacity style={[styles.tab, activeTab === "library" && styles.activeTab]} onPress={() => setActiveTab("library")}>
-                    <Ionicons name="library" size={22} color={activeTab === "library" ? "#2e7d32" : "#999"} />
-                    <Text style={[styles.tabText, activeTab === "library" && styles.activeTabText]}>Thư viện</Text>
+            <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+
+            {/* === HEADER ĐỒNG BỘ 100% === */}
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                    <Ionicons name="arrow-back" size={24} color="#222" />
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.tab, activeTab === "quiz" && styles.activeTab]} onPress={() => setActiveTab("quiz")}>
-                    <Ionicons name="school" size={22} color={activeTab === "quiz" ? "#2e7d32" : "#999"} />
-                    <Text style={[styles.tabText, activeTab === "quiz" && styles.activeTabText]}>Quiz</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.tab, activeTab === "tips" && styles.activeTab]} onPress={() => setActiveTab("tips")}>
-                    <Ionicons name="bulb" size={22} color={activeTab === "tips" ? "#2e7d32" : "#999"} />
-                    <Text style={[styles.tabText, activeTab === "tips" && styles.activeTabText]}>Mỗi ngày</Text>
-                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Học tập</Text>
+                <View style={{ width: 40 }} />
+            </View>
+
+            {/* === TAB DƯỚI HEADER === */}
+            <View style={styles.tabContainer}>
+                <View style={styles.tabs}>
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === "library" && styles.activeTab]}
+                        onPress={() => setActiveTab("library")}
+                    >
+                        <Ionicons name="library" size={22} color={activeTab === "library" ? "#2e7d32" : "#999"} />
+                        <Text style={[styles.tabText, activeTab === "library" && styles.activeTabText]}>
+                            Thư viện
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === "quiz" && styles.activeTab]}
+                        onPress={() => setActiveTab("quiz")}
+                    >
+                        <Ionicons name="school" size={22} color={activeTab === "quiz" ? "#2e7d32" : "#999"} />
+                        <Text style={[styles.tabText, activeTab === "quiz" && styles.activeTabText]}>
+                            Quiz
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === "tips" && styles.activeTab]}
+                        onPress={() => setActiveTab("tips")}
+                    >
+                        <Ionicons name="bulb" size={22} color={activeTab === "tips" ? "#2e7d32" : "#999"} />
+                        <Text style={[styles.tabText, activeTab === "tips" && styles.activeTabText]}>
+                            Mỗi ngày
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Content */}
@@ -988,7 +1019,31 @@ export default function LearningScreen() {
 
 // STYLES
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#f5f5f5" },
+    container: { flex: 1, backgroundColor: "#f8f9fa" },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingTop: 50,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        backgroundColor: "#f8f9fa",
+        borderBottomWidth: 1,
+        borderBottomColor: "#eee",
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: "#eee",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: "#222",
+        marginLeft: 12,
+    },
     loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f5f5" },
     loadingText: { fontSize: 16, color: "#666", marginTop: 16, fontWeight: "600" },
     tabs: { flexDirection: "row", backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: "#e0e0e0" },

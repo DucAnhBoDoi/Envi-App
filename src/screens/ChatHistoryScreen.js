@@ -1,5 +1,5 @@
 // src/screens/ChatHistoryScreen.js
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   FlatList,
   TouchableOpacity,
   Alert,
+  StatusBar,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../context/UserContext";
@@ -16,17 +18,17 @@ export default function ChatHistoryScreen({ navigation }) {
   const { chatHistory, clearChatHistory, loadChatHistory } = useContext(UserContext);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 🔥 Chỉ lấy câu hỏi của user (sender === "user")
-  const userQuestions = chatHistory.filter(item => item.sender === "user");
+  // Chỉ lấy câu hỏi của user
+  const userQuestions = (chatHistory || []).filter(item => item.sender === "user");
 
-  // 🔥 Refresh khi vào màn hình này
+  // Load lại khi vào màn hình
   useFocusEffect(
     React.useCallback(() => {
       loadChatHistory();
-    }, [])
+    }, [loadChatHistory])
   );
 
-  // Xử lý xóa lịch sử
+  // Xóa lịch sử
   const handleClearHistory = () => {
     Alert.alert(
       "Xóa lịch sử chat",
@@ -38,7 +40,7 @@ export default function ChatHistoryScreen({ navigation }) {
           style: "destructive",
           onPress: async () => {
             const result = await clearChatHistory();
-            if (result.success) {
+            if (result?.success) {
               Alert.alert("Thành công", "Đã xóa lịch sử chat");
             }
           },
@@ -47,7 +49,6 @@ export default function ChatHistoryScreen({ navigation }) {
     );
   };
 
-  // Refresh danh sách
   const onRefresh = async () => {
     setRefreshing(true);
     await loadChatHistory();
@@ -57,11 +58,7 @@ export default function ChatHistoryScreen({ navigation }) {
   const renderChatItem = ({ item }) => (
     <View style={styles.chatCard}>
       <View style={styles.chatHeader}>
-        <Ionicons
-          name="person-circle"
-          size={20}
-          color="#2e7d32"
-        />
+        <Ionicons name="person-circle" size={20} color="#2e7d32" />
         <Text style={styles.chatSender}>Bạn đã hỏi</Text>
         <Text style={styles.chatTime}>
           {new Date(item.timestamp).toLocaleString("vi-VN", {
@@ -78,79 +75,110 @@ export default function ChatHistoryScreen({ navigation }) {
     </View>
   );
 
-  if (userQuestions.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="chatbubbles-outline" size={80} color="#c8e6c9" />
-        <Text style={styles.emptyText}>Chưa có lịch sử câu hỏi</Text>
-        <Text style={styles.emptySubtext}>
-          Các câu hỏi bạn đã hỏi sẽ được lưu tại đây
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      {/* Danh sách */}
-      <FlatList
-        data={userQuestions}
-        keyExtractor={(item) => item.id}
-        renderItem={renderChatItem}
-        contentContainerStyle={styles.listContent}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-      />
+      {/* Status Bar */}
+      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+
+      {/* HEADER ĐỒNG BỘ 100% */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#222" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Lịch sử trò chuyện</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* NỘI DUNG */}
+      {userQuestions.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="chatbubbles-outline" size={80} color="#c8e6c9" />
+          <Text style={styles.emptyText}>Chưa có lịch sử câu hỏi</Text>
+          <Text style={styles.emptySubtext}>
+            Các câu hỏi bạn đã hỏi sẽ được lưu tại đây
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={userQuestions}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderChatItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#2e7d32"]}
+            />
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  
+  container: {
+    flex: 1,
+    backgroundColor: "#f8f9fa", // Đồng bộ toàn app
+  },
+
+  // HEADER ĐỒNG BỘ
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
-    backgroundColor: "#fff",
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#eee",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#2e7d32",
-  },
-  headerCount: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 2,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#222",
+    marginLeft: 12,
   },
 
-  listContent: { padding: 16 },
+  // LIST
+  listContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
 
+  // EMPTY STATE
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fa",
     padding: 20,
   },
-  emptyText: { 
-    fontSize: 18, 
-    fontWeight: "600", 
-    color: "#666", 
-    marginTop: 20 
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#666",
+    marginTop: 20,
   },
-  emptySubtext: { 
-    fontSize: 14, 
-    color: "#999", 
-    marginTop: 8, 
+  emptySubtext: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 8,
     textAlign: "center",
     paddingHorizontal: 40,
   },
 
+  // CHAT CARD
   chatCard: {
     borderRadius: 12,
     padding: 12,
@@ -164,25 +192,25 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#2e7d32",
   },
-  chatHeader: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 8, 
-    marginBottom: 8 
+  chatHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
   },
-  chatSender: { 
-    fontSize: 12, 
-    fontWeight: "600", 
-    color: "#2e7d32", 
-    flex: 1 
+  chatSender: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2e7d32",
+    flex: 1,
   },
-  chatTime: { 
-    fontSize: 10, 
-    color: "#999" 
+  chatTime: {
+    fontSize: 10,
+    color: "#999",
   },
-  chatText: { 
-    fontSize: 14, 
-    color: "#333", 
-    lineHeight: 20 
+  chatText: {
+    fontSize: 14,
+    color: "#333",
+    lineHeight: 20,
   },
 });
