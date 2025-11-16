@@ -89,7 +89,7 @@ export default function ProfileScreen({ navigation }) {
                 ? await clearReportHistory()
                 : await clearChatHistory();
             if (result.success) {
-              Alert.alert("Thành công", "Đã xóa lịch sử!");
+              Alert.alert("🍃 Thành công", "Đã xóa lịch sử!");
             }
           },
         },
@@ -165,7 +165,6 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  // ✅ FIXED: Toggle permissions với UX rõ ràng hơn
   const handleToggleLocation = async () => {
     if (!permissions.location) {
       // Chưa bật → Yêu cầu bật
@@ -179,7 +178,7 @@ export default function ProfileScreen({ navigation }) {
             onPress: async () => {
               const result = await toggleLocationPermission();
               if (result.success) {
-                Alert.alert("Thành công", "Đã bật quyền vị trí");
+                Alert.alert("🍃 Thành công", "Đã bật quyền vị trí");
                 await checkSystemPermissions();
               }
             },
@@ -190,7 +189,7 @@ export default function ProfileScreen({ navigation }) {
       // Đã bật → Hướng dẫn tắt
       Alert.alert(
         "Tắt quyền vị trí?",
-        "Để tắt quyền vị trí, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        "Để tắt quyền vị trí, Vui lòng thực hiện trong Cài đặt hệ thống.",
         [
           { text: "Hủy", style: "cancel" },
           {
@@ -217,7 +216,7 @@ export default function ProfileScreen({ navigation }) {
             onPress: async () => {
               const result = await toggleNotificationPermission();
               if (result.success) {
-                Alert.alert("Thành công", "Đã bật thông báo");
+                Alert.alert("🍃 Thành công", "Đã bật thông báo");
                 await checkSystemPermissions();
               }
             },
@@ -228,7 +227,7 @@ export default function ProfileScreen({ navigation }) {
       // Đã bật → Hướng dẫn tắt
       Alert.alert(
         "🔔 Tắt thông báo?",
-        "Để tắt thông báo, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        "Để tắt thông báo, Vui lòng thực hiện trong Cài đặt hệ thống.",
         [
           { text: "Hủy", style: "cancel" },
           {
