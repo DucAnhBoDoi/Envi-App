@@ -1,4 +1,4 @@
-// src/screens/ReportScreen.js
+// src/screens/ReportScreen.js - MERGED VERSION WITH ALL FEATURES
 import React, { useState, useEffect, useContext } from "react";
 import {
   View,
@@ -18,10 +18,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 import { UserContext } from "../context/UserContext";
-import SafeAreaScrollView from "../components/SafeAreaScrollView";
 import { PermissionsContext } from "../context/PermissionsContext";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
-// Danh mục vi phạm
 const VIOLATION_CATEGORIES = [
   {
     id: "1",
@@ -63,6 +62,7 @@ const VIOLATION_CATEGORIES = [
 
 export default function ReportScreen({ navigation }) {
   const { addReportToHistory } = useContext(UserContext);
+  const { permissions, toggleLocationPermission, checkSystemPermissions } = useContext(PermissionsContext);
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [description, setDescription] = useState("");
@@ -73,26 +73,23 @@ export default function ReportScreen({ navigation }) {
   const [showMap, setShowMap] = useState(false);
   const [mapRegion, setMapRegion] = useState(null);
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
-  const { permissions, toggleLocationPermission, checkSystemPermissions } = useContext(PermissionsContext);
 
   useEffect(() => {
     getCurrentLocation();
   }, []);
 
-  // Lấy địa chỉ từ Nominatim (OpenStreetMap)
   const getAddressFromCoords = async (latitude, longitude) => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&accept-language=vi`,
         {
           headers: {
-            "User-Agent": "envi-app/1.0 (https://example.com)", // bắt buộc có
+            "User-Agent": "envi-app/1.0 (https://example.com)",
             "Accept-Language": "vi",
           },
         }
       );
 
-      // Nếu không phải JSON thì báo lỗi
       const text = await response.text();
       try {
         const data = JSON.parse(text);
@@ -111,8 +108,6 @@ export default function ReportScreen({ navigation }) {
     }
   };
 
-
-  // Lấy vị trí hiện tại
   const getCurrentLocation = async () => {
     try {
       setLoadingLocation(true);
@@ -172,7 +167,6 @@ export default function ReportScreen({ navigation }) {
     }
   };
 
-  // Chọn vị trí trên bản đồ
   const handleMapPress = async (event) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setSelectedMapLocation({ latitude, longitude });
@@ -185,7 +179,6 @@ export default function ReportScreen({ navigation }) {
     }
   };
 
-  // Xác nhận vị trí từ bản đồ
   const confirmMapLocation = () => {
     if (selectedMapLocation) {
       setLocation(selectedMapLocation);
@@ -194,7 +187,6 @@ export default function ReportScreen({ navigation }) {
     }
   };
 
-  // Chụp ảnh
   const takePhoto = async () => {
     if (images.length >= 5) {
       Alert.alert("Giới hạn", "Chỉ có thể tải lên tối đa 5 ảnh");
@@ -214,7 +206,6 @@ export default function ReportScreen({ navigation }) {
     }
   };
 
-  // Chọn ảnh từ thư viện
   const pickImages = async () => {
     if (images.length >= 5) {
       Alert.alert("Giới hạn", "Chỉ có thể tải lên tối đa 5 ảnh");
@@ -235,13 +226,11 @@ export default function ReportScreen({ navigation }) {
     }
   };
 
-  // Xóa ảnh
   const removeImage = (index) => {
     const newImages = images.filter((_, i) => i !== index);
     setImages(newImages);
   };
 
-  // Gửi báo cáo
   const submitReport = () => {
     if (!selectedCategory) {
       Alert.alert("Thiếu thông tin", "Vui lòng chọn loại vi phạm");
@@ -288,15 +277,16 @@ export default function ReportScreen({ navigation }) {
       images,
       location: address,
       coordinates: location,
-      status: "pending", // pending, processing, completed
+      status: "pending",
     };
 
+    // ✅ addReportToHistory đã tự động thưởng +15 điểm trong UserContext
     const result = await addReportToHistory(report);
 
     if (result.success) {
       Alert.alert(
-        "Thành công",
-        "Báo cáo đã được gửi thành công. Chúng tôi sẽ xử lý trong thời gian sớm nhất.",
+        "Thành công! 🎉",
+        "Báo cáo đã được gửi thành công. Bạn nhận được +15 điểm! Chúng tôi sẽ xử lý trong thời gian sớm nhất.",
         [
           {
             text: "Xem lịch sử",
@@ -321,7 +311,6 @@ export default function ReportScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
       {showMap ? (
-        /* ==================== BẢN ĐỒ TOÀN MÀN HÌNH ==================== */
         <View style={styles.mapContainer}>
           <MapView
             style={StyleSheet.absoluteFillObject}
@@ -347,12 +336,24 @@ export default function ReportScreen({ navigation }) {
           </View>
         </View>
       ) : (
-        /* ==================== FORM BÁO CÁO – CUỘN ĐẸP ==================== */
         <SafeAreaScrollView showsVerticalScrollIndicator={false}>
-          {/* HEADER – CHUẨN 56PX */}
+          {/* HEADER */}
           <View style={styles.header}>
             <Ionicons name="alert-circle" size={32} color="#E53935" />
             <Text style={styles.headerText}>Báo cáo vi phạm môi trường</Text>
+          </View>
+
+          {/* ✅ THÊM: Thông báo điểm thưởng */}
+          <View style={styles.rewardBanner}>
+            <View style={styles.rewardIconBox}>
+              <Ionicons name="trophy" size={24} color="#FF9800" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rewardTitle}>Nhận +15 điểm khi gửi báo cáo!</Text>
+              <Text style={styles.rewardDesc}>
+                Mỗi báo cáo giúp cải thiện môi trường và bạn sẽ nhận điểm thưởng
+              </Text>
+            </View>
           </View>
 
           {/* 1. LOẠI VI PHẠM */}
@@ -516,10 +517,9 @@ export default function ReportScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* KHOẢNG CÁCH ĐẸP GIỮA LƯU Ý VÀ NÚT GỬI */}
           <View style={{ height: 10 }} />
 
-          {/* NÚT GỬI BÁO CÁO – CUỘN THEO, ĐẸP RIÊNG, KHÔNG DÍNH LƯU Ý */}
+          {/* NÚT GỬI BÁO CÁO */}
           <View style={styles.submitWrapper}>
             <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
               <Ionicons name="send" size={20} color="#fff" />
@@ -527,7 +527,6 @@ export default function ReportScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* ĐỆM CUỐI ĐỂ KHÔNG BỊ CHE TAB BAR */}
           <View style={{ height: 10 }} />
         </SafeAreaScrollView>
       )}
@@ -558,6 +557,37 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
+  rewardBanner: {
+    flexDirection: "row",
+    backgroundColor: "#fff3e0",
+    marginHorizontal: 15,
+    marginTop: 15,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF9800",
+    alignItems: "center",
+  },
+  rewardIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 152, 0, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  rewardTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#E65100",
+    marginBottom: 4,
+  },
+  rewardDesc: {
+    fontSize: 12,
+    color: "#5D4037",
+    lineHeight: 16,
+  },
   section: {
     backgroundColor: "#fff",
     marginHorizontal: 15,
@@ -581,8 +611,6 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 12,
   },
-
-  // Categories
   categoriesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -604,8 +632,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 6,
   },
-
-  // Description
   textArea: {
     borderWidth: 1,
     borderColor: "#e0e0e0",
@@ -622,8 +648,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginTop: 6,
   },
-
-  // Images
   imageButtons: {
     flexDirection: "row",
     gap: 10,
@@ -673,8 +697,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
   },
-
-  // Location
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -721,8 +743,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 13,
   },
-
-  // Map
   mapContainer: {
     flex: 1,
   },
@@ -756,8 +776,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
   },
-
-  // Tips
   tipsCard: {
     backgroundColor: "#fff3e0",
     marginHorizontal: 15,
@@ -778,7 +796,6 @@ const styles = StyleSheet.create({
     color: "#BF360C",
     lineHeight: 22,
   },
-
   submitButton: {
     flexDirection: "row",
     alignItems: "center",
