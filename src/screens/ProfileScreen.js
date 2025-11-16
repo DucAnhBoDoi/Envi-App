@@ -1,4 +1,4 @@
-// src/screens/ProfileScreen.js - FIXED VERSION
+// src/screens/ProfileScreen.js - MERGED VERSION WITH ALL FEATURES
 import React, { useContext, useState, useEffect } from "react";
 import {
   View,
@@ -44,7 +44,7 @@ export default function ProfileScreen({ navigation }) {
   const [deletePassword, setDeletePassword] = useState("");
   const [deleting, setDeleting] = useState(false);
 
-  // Refresh permissions khi vào màn hình và khi quay lại từ Settings
+  // Refresh permissions khi vào màn hình
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       checkSystemPermissions();
@@ -89,7 +89,7 @@ export default function ProfileScreen({ navigation }) {
                 ? await clearReportHistory()
                 : await clearChatHistory();
             if (result.success) {
-              Alert.alert("Thành công", "Đã xóa lịch sử!");
+              Alert.alert("🍃 Thành công", "Đã xóa lịch sử!");
             }
           },
         },
@@ -165,10 +165,8 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  // ✅ FIXED: Toggle permissions với UX rõ ràng hơn
   const handleToggleLocation = async () => {
     if (!permissions.location) {
-      // Chưa bật → Yêu cầu bật
       Alert.alert(
         "📍 Bật quyền vị trí",
         "Ứng dụng cần quyền vị trí để:\n\n🍃 Hiển thị AQI khu vực của bạn\n\n🏡 Xác định vị trí khi báo cáo vi phạm",
@@ -179,7 +177,7 @@ export default function ProfileScreen({ navigation }) {
             onPress: async () => {
               const result = await toggleLocationPermission();
               if (result.success) {
-                Alert.alert("Thành công", "Đã bật quyền vị trí");
+                Alert.alert("🍃 Thành công", "Đã bật quyền vị trí");
                 await checkSystemPermissions();
               }
             },
@@ -187,10 +185,9 @@ export default function ProfileScreen({ navigation }) {
         ]
       );
     } else {
-      // Đã bật → Hướng dẫn tắt
       Alert.alert(
         "Tắt quyền vị trí?",
-        "Để tắt quyền vị trí, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        "Để tắt quyền vị trí, vui lòng thực hiện trong Cài đặt hệ thống.",
         [
           { text: "Hủy", style: "cancel" },
           {
@@ -206,9 +203,8 @@ export default function ProfileScreen({ navigation }) {
 
   const handleToggleNotification = async () => {
     if (!permissions.notifications) {
-      // Chưa bật → Yêu cầu bật
       Alert.alert(
-        "Bật thông báo",
+        "🔔 Bật thông báo",
         "Ứng dụng cần quyền thông báo để:\n\n⚠️ Cảnh báo khi AQI vượt ngưỡng\n\n📢 Thông báo cập nhật báo cáo của bạn",
         [
           { text: "Hủy", style: "cancel" },
@@ -217,7 +213,7 @@ export default function ProfileScreen({ navigation }) {
             onPress: async () => {
               const result = await toggleNotificationPermission();
               if (result.success) {
-                Alert.alert("Thành công", "Đã bật thông báo");
+                Alert.alert("🍃 Thành công", "Đã bật thông báo");
                 await checkSystemPermissions();
               }
             },
@@ -225,10 +221,9 @@ export default function ProfileScreen({ navigation }) {
         ]
       );
     } else {
-      // Đã bật → Hướng dẫn tắt
       Alert.alert(
         "🔔 Tắt thông báo?",
-        "Để tắt thông báo, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        "Để tắt thông báo, vui lòng thực hiện trong Cài đặt hệ thống.",
         [
           { text: "Hủy", style: "cancel" },
           {
@@ -246,7 +241,7 @@ export default function ProfileScreen({ navigation }) {
     const result = await toggleDataSharing();
     if (result.success) {
       Alert.alert(
-        result.enabled ? "Chia sẻ dữ liệu đã bật " : "Chia sẻ dữ liệu đã tắt",
+        result.enabled ? "Chia sẻ dữ liệu đã bật" : "Chia sẻ dữ liệu đã tắt",
         result.enabled
           ? "🌍 App có thể sử dụng dữ liệu của bạn để cải thiện trải nghiệm"
           : "👤 Dữ liệu cá nhân sẽ không được chia sẻ"
@@ -337,26 +332,41 @@ export default function ProfileScreen({ navigation }) {
         )}
       </View>
 
-      {/* Thống kê hoạt động */}
+      {/* ✅ THỐNG KÊ HOẠT ĐỘNG - GIỮ NGUYÊN GAMIFICATION */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Hoạt động</Text>
+        <Text style={styles.sectionTitle}>Hoạt động & Thành tích</Text>
         <View style={styles.statsContainer}>
+          <StatCard
+            icon="trophy"
+            count={userProfile.points || 0}
+            label="Điểm"
+            color="#FF9800"
+          />
           <StatCard
             icon="document-text-outline"
             count={reportHistory.length}
             label="Báo cáo"
             color="#2e7d32"
           />
+        </View>
+
+        <View style={styles.statsContainer}>
           <StatCard
-            icon="chatbubbles-outline"
-            count={userChatCount}
-            label="Câu hỏi"
+            icon="people"
+            count={userProfile.campaignsJoined || 0}
+            label="Chiến dịch"
             color="#1976d2"
+          />
+          <StatCard
+            icon="leaf"
+            count={userProfile.wasteClassified || 0}
+            label="Phân loại rác"
+            color="#43A047"
           />
         </View>
       </View>
 
-      {/* QUYỀN RIÊNG TƯ & BẢO MẬT */}
+      {/* ✅ QUYỀN RIÊNG TƯ & BẢO MẬT */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="shield-checkmark" size={24} color="#2e7d32" />
@@ -413,7 +423,7 @@ export default function ProfileScreen({ navigation }) {
             />
           </View>
 
-          {/* Chia sẻ dữ liệu (App-level, có thể tắt trực tiếp) */}
+          {/* Chia sẻ dữ liệu */}
           <View style={styles.permissionRow}>
             <View style={styles.permissionInfo}>
               <Ionicons name="share-social" size={22} color="#1976D2" />
@@ -702,7 +712,7 @@ const styles = StyleSheet.create({
   infoContent: { flex: 1 },
   infoLabel: { fontSize: 12, color: "#999", marginBottom: 4 },
   infoValue: { fontSize: 16, color: "#333", fontWeight: "500" },
-  statsContainer: { flexDirection: "row", justifyContent: "space-around", gap: 10 },
+  statsContainer: { flexDirection: "row", justifyContent: "space-around", gap: 10, marginBottom: 10 },
   statCard: {
     flex: 1,
     backgroundColor: "#f9f9f9",
