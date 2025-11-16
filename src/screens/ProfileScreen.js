@@ -1,34 +1,56 @@
-// src/screens/ProfileScreen.js
-// src/screens/ProfileScreen.js
-import React, { useContext } from "react";
+// src/screens/ProfileScreen.js - FIXED VERSION
+import React, { useContext, useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Image,
   Alert,
   ActivityIndicator,
   Platform,
   StatusBar,
+  Switch,
+  TextInput,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AuthContext } from "../context/AuthContext";
 import { UserContext } from "../context/UserContext";
+import { PermissionsContext } from "../context/PermissionsContext";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
-import { CommonActions } from '@react-navigation/native';
 
 export default function ProfileScreen({ navigation }) {
-  const { user, guestMode, logout } = useContext(AuthContext);
+  const { user, guestMode, logout, deleteAccount } = useContext(AuthContext);
   const {
     userProfile,
     reportHistory,
     chatHistory,
     clearReportHistory,
     clearChatHistory,
+    deleteAllUserData,
     loading,
   } = useContext(UserContext);
+
+  const {
+    permissions,
+    toggleLocationPermission,
+    toggleNotificationPermission,
+    toggleDataSharing,
+    checkSystemPermissions,
+  } = useContext(PermissionsContext);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  // Refresh permissions khi vào màn hình và khi quay lại từ Settings
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkSystemPermissions();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -43,8 +65,6 @@ export default function ProfileScreen({ navigation }) {
           style: "destructive",
           onPress: async () => {
             await logout();
-            // XONG! Không cần làm gì thêm
-            // App tự về màn đăng nhập
           },
         },
       ],
@@ -77,6 +97,163 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+
+    try {
+      if (!guestMode && user?.uid) {
+        const firestoreResult = await deleteAllUserData(user.uid);
+        if (!firestoreResult.success) {
+          Alert.alert("Lỗi", "Không thể xóa dữ liệu trên server");
+          setDeleting(false);
+          return;
+        }
+      }
+
+      const authResult = await deleteAccount(
+        !guestMode && user?.providerData?.[0]?.providerId === "password"
+          ? deletePassword
+          : null
+      );
+
+      if (authResult.success) {
+        setShowDeleteModal(false);
+        Alert.alert(
+          "Tài khoản đã xóa",
+          "Tất cả dữ liệu của bạn đã được xóa vĩnh viễn.",
+          [{ text: "OK" }]
+        );
+      } else {
+        if (authResult.requirePassword) {
+          Alert.alert("Yêu cầu xác thực", "Vui lòng nhập mật khẩu để xác nhận");
+        } else if (authResult.requireReauth) {
+          Alert.alert(
+            "Cần đăng nhập lại",
+            "Vui lòng đăng xuất và đăng nhập lại, sau đó thử xóa tài khoản",
+            [
+              { text: "Hủy", style: "cancel" },
+              { text: "Đăng xuất", onPress: logout },
+            ]
+          );
+        } else {
+          Alert.alert("Lỗi", authResult.error || "Không thể xóa tài khoản");
+        }
+      }
+    } catch (error) {
+      console.error("Lỗi xóa tài khoản:", error);
+      Alert.alert("Lỗi", "Đã xảy ra lỗi không mong muốn");
+    } finally {
+      setDeleting(false);
+      setDeletePassword("");
+    }
+  };
+
+  const openDeleteModal = () => {
+    Alert.alert(
+      "⚠️ CẢNH BÁO NGHIÊM TRỌNG",
+      guestMode
+        ? "Tất cả dữ liệu khách sẽ bị XÓA VĨNH VIỄN!\n\n• Lịch sử báo cáo\n• Lịch sử chat\n• Cài đặt cá nhân\n\nKHÔNG THỂ KHÔI PHỤC!\n\nBạn có chắc chắn?"
+        : "Hành động này sẽ:\n\n• Xóa vĩnh viễn tài khoản Firebase\n• Xóa TẤT CẢ bài viết, comment, nhóm\n• Xóa lịch sử báo cáo và chat\n• KHÔNG THỂ KHÔI PHỤC\n\nBạn có chắc chắn?",
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Tiếp tục",
+          style: "destructive",
+          onPress: () => setShowDeleteModal(true),
+        },
+      ]
+    );
+  };
+
+  // ✅ FIXED: Toggle permissions với UX rõ ràng hơn
+  const handleToggleLocation = async () => {
+    if (!permissions.location) {
+      // Chưa bật → Yêu cầu bật
+      Alert.alert(
+        "📍 Bật quyền vị trí",
+        "Ứng dụng cần quyền vị trí để:\n\n🍃 Hiển thị AQI khu vực của bạn\n\n🏡 Xác định vị trí khi báo cáo vi phạm",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Cấp quyền",
+            onPress: async () => {
+              const result = await toggleLocationPermission();
+              if (result.success) {
+                Alert.alert("Thành công", "Đã bật quyền vị trí");
+                await checkSystemPermissions();
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Đã bật → Hướng dẫn tắt
+      Alert.alert(
+        "Tắt quyền vị trí?",
+        "Để tắt quyền vị trí, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Mở Cài đặt",
+            onPress: async () => {
+              await toggleLocationPermission();
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleToggleNotification = async () => {
+    if (!permissions.notifications) {
+      // Chưa bật → Yêu cầu bật
+      Alert.alert(
+        "Bật thông báo",
+        "Ứng dụng cần quyền thông báo để:\n\n⚠️ Cảnh báo khi AQI vượt ngưỡng\n\n📢 Thông báo cập nhật báo cáo của bạn",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Cấp quyền",
+            onPress: async () => {
+              const result = await toggleNotificationPermission();
+              if (result.success) {
+                Alert.alert("Thành công", "Đã bật thông báo");
+                await checkSystemPermissions();
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Đã bật → Hướng dẫn tắt
+      Alert.alert(
+        "🔔 Tắt thông báo?",
+        "Để tắt thông báo, bạn cần vào Cài đặt hệ thống.\n\nSau khi tắt, ứng dụng sẽ tự động cập nhật trạng thái khi bạn quay lại.",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Mở Cài đặt",
+            onPress: async () => {
+              await toggleNotificationPermission();
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleToggleDataSharing = async () => {
+    const result = await toggleDataSharing();
+    if (result.success) {
+      Alert.alert(
+        result.enabled ? "Chia sẻ dữ liệu đã bật " : "Chia sẻ dữ liệu đã tắt",
+        result.enabled
+          ? "🌍 App có thể sử dụng dữ liệu của bạn để cải thiện trải nghiệm"
+          : "👤 Dữ liệu cá nhân sẽ không được chia sẻ"
+      );
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -86,8 +263,7 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  // 🔹 Chỉ đếm câu hỏi của user
-  const userChatCount = chatHistory.filter(item => item.sender === "user").length;
+  const userChatCount = chatHistory.filter((item) => item.sender === "user").length;
 
   return (
     <SafeAreaScrollView style={styles.container}>
@@ -123,9 +299,7 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.userEmail}>{userProfile.email || user?.email}</Text>
         )}
 
-        {userProfile.bio && (
-          <Text style={styles.userBio}>{userProfile.bio}</Text>
-        )}
+        {userProfile.bio && <Text style={styles.userBio}>{userProfile.bio}</Text>}
 
         {!guestMode && (
           <TouchableOpacity
@@ -150,13 +324,14 @@ export default function ProfileScreen({ navigation }) {
       {/* Thông tin chi tiết */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-
-        <InfoRow icon="location-outline" label="Khu vực mặc định" value={userProfile.defaultRegion} />
-
+        <InfoRow
+          icon="location-outline"
+          label="Khu vực mặc định"
+          value={userProfile.defaultRegion}
+        />
         {userProfile.phone && (
           <InfoRow icon="call-outline" label="Số điện thoại" value={userProfile.phone} />
         )}
-
         {userProfile.address && (
           <InfoRow icon="home-outline" label="Địa chỉ" value={userProfile.address} />
         )}
@@ -165,7 +340,6 @@ export default function ProfileScreen({ navigation }) {
       {/* Thống kê hoạt động */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Hoạt động</Text>
-
         <View style={styles.statsContainer}>
           <StatCard
             icon="document-text-outline"
@@ -175,23 +349,102 @@ export default function ProfileScreen({ navigation }) {
           />
           <StatCard
             icon="chatbubbles-outline"
-            count={userChatCount} // ✅ chỉ đếm câu hỏi của user
+            count={userChatCount}
             label="Câu hỏi"
             color="#1976d2"
           />
         </View>
       </View>
 
+      {/* QUYỀN RIÊNG TƯ & BẢO MẬT */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="shield-checkmark" size={24} color="#2e7d32" />
+          <Text style={styles.sectionTitle}>Quyền riêng tư & Bảo mật</Text>
+        </View>
+
+        <View style={styles.encryptionBanner}>
+          <Ionicons name="lock-closed" size={20} color="#2e7d32" />
+          <Text style={styles.encryptionText}>
+            Dữ liệu của bạn được mã hóa an toàn bằng Firebase
+          </Text>
+        </View>
+
+        <View style={styles.permissionCard}>
+          {/* Quyền vị trí */}
+          <View style={styles.permissionRow}>
+            <View style={styles.permissionInfo}>
+              <Ionicons name="location" size={22} color="#E53935" />
+              <View style={styles.permissionText}>
+                <Text style={styles.permissionTitle}>Vị trí</Text>
+                <Text style={styles.permissionDesc}>
+                  {permissions.location
+                    ? "Đã bật - Nhấn để vào Cài đặt và tắt"
+                    : "Chưa bật - Nhấn để cấp quyền"}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={permissions.location}
+              onValueChange={handleToggleLocation}
+              trackColor={{ false: "#ccc", true: "#81c784" }}
+              thumbColor={permissions.location ? "#2e7d32" : "#f4f3f4"}
+            />
+          </View>
+
+          {/* Quyền thông báo */}
+          <View style={styles.permissionRow}>
+            <View style={styles.permissionInfo}>
+              <Ionicons name="notifications" size={22} color="#FF9800" />
+              <View style={styles.permissionText}>
+                <Text style={styles.permissionTitle}>Thông báo</Text>
+                <Text style={styles.permissionDesc}>
+                  {permissions.notifications
+                    ? "Đã bật - Nhấn để vào Cài đặt và tắt"
+                    : "Chưa bật - Nhấn để cấp quyền"}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={permissions.notifications}
+              onValueChange={handleToggleNotification}
+              trackColor={{ false: "#ccc", true: "#ffcc80" }}
+              thumbColor={permissions.notifications ? "#FF9800" : "#f4f3f4"}
+            />
+          </View>
+
+          {/* Chia sẻ dữ liệu (App-level, có thể tắt trực tiếp) */}
+          <View style={styles.permissionRow}>
+            <View style={styles.permissionInfo}>
+              <Ionicons name="share-social" size={22} color="#1976D2" />
+              <View style={styles.permissionText}>
+                <Text style={styles.permissionTitle}>Chia sẻ dữ liệu</Text>
+                <Text style={styles.permissionDesc}>
+                  Cho phép sử dụng dữ liệu để cải thiện dịch vụ
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={permissions.dataSharing}
+              onValueChange={handleToggleDataSharing}
+              trackColor={{ false: "#ccc", true: "#64b5f6" }}
+              thumbColor={permissions.dataSharing ? "#1976D2" : "#f4f3f4"}
+            />
+          </View>
+        </View>
+      </View>
+
       {/* Lịch sử */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Lịch sử</Text>
-
         <TouchableOpacity
           style={styles.historyButton}
           onPress={() => navigation.navigate("ReportHistory")}
         >
           <Ionicons name="document-text-outline" size={24} color="#2e7d32" />
-          <Text style={styles.historyButtonText}>Lịch sử báo cáo ({reportHistory.length})</Text>
+          <Text style={styles.historyButtonText}>
+            Lịch sử báo cáo ({reportHistory.length})
+          </Text>
           <Ionicons name="chevron-forward" size={24} color="#999" />
         </TouchableOpacity>
 
@@ -201,7 +454,7 @@ export default function ProfileScreen({ navigation }) {
         >
           <Ionicons name="chatbubbles-outline" size={24} color="#1976d2" />
           <Text style={styles.historyButtonText}>
-            Lịch sử chat ({userChatCount}) {/* ✅ chỉ đếm câu hỏi của user */}
+            Lịch sử chat ({userChatCount})
           </Text>
           <Ionicons name="chevron-forward" size={24} color="#999" />
         </TouchableOpacity>
@@ -210,7 +463,6 @@ export default function ProfileScreen({ navigation }) {
       {/* Cài đặt */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Cài đặt</Text>
-
         <TouchableOpacity
           style={styles.settingButton}
           onPress={() => handleClearHistory("report")}
@@ -230,6 +482,16 @@ export default function ProfileScreen({ navigation }) {
             Xóa lịch sử chat
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.settingButton, styles.deleteAccountButton]}
+          onPress={openDeleteModal}
+        >
+          <Ionicons name="close-circle" size={24} color="#d32f2f" />
+          <Text style={[styles.settingButtonText, { color: "#d32f2f", fontWeight: "bold" }]}>
+            Xóa tài khoản vĩnh viễn
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -238,6 +500,61 @@ export default function ProfileScreen({ navigation }) {
       </TouchableOpacity>
 
       <View style={{ height: 30 }} />
+
+      {/* MODAL XÓA TÀI KHOẢN */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="warning" size={60} color="#d32f2f" />
+            <Text style={styles.modalTitle}>Xóa tài khoản?</Text>
+            <Text style={styles.modalDesc}>
+              Hành động này KHÔNG THỂ KHÔI PHỤC. Tất cả dữ liệu sẽ bị xóa vĩnh viễn.
+            </Text>
+
+            {!guestMode && user?.providerData?.[0]?.providerId === "password" && (
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Nhập mật khẩu để xác nhận"
+                placeholderTextColor="#999"
+                secureTextEntry
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                autoFocus
+              />
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  setDeletePassword("");
+                }}
+                disabled={deleting}
+              >
+                <Text style={styles.modalButtonTextCancel}>Hủy</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonDelete]}
+                onPress={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonTextDelete}>Xóa vĩnh viễn</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaScrollView>
   );
 }
@@ -253,7 +570,7 @@ const InfoRow = ({ icon, label, value }) => (
   </View>
 );
 
-// Component StatCard (giữ nguyên như code của bạn)
+// Component StatCard
 const StatCard = ({ icon, count, label, color }) => (
   <View style={styles.statCard}>
     <Ionicons name={icon} size={32} color={color} />
@@ -261,7 +578,6 @@ const StatCard = ({ icon, count, label, color }) => (
     <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
-
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
@@ -272,16 +588,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   loadingText: { marginTop: 10, fontSize: 16, color: "#2e7d32" },
-
   header: {
     backgroundColor: "#fff",
     padding: 20,
     alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 50, // ✅ Thêm dòng này
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 50,
   },
-
   avatarContainer: { position: "relative", marginBottom: 15 },
   avatar: { width: 100, height: 100, borderRadius: 50 },
   avatarPlaceholder: {
@@ -303,11 +617,9 @@ const styles = StyleSheet.create({
   guestBadge: { backgroundColor: "#999" },
   userBadge: { backgroundColor: "#2e7d32" },
   badgeText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
-
   userName: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 5 },
   userEmail: { fontSize: 14, color: "#666", marginBottom: 10 },
   userBio: { fontSize: 14, color: "#666", textAlign: "center", marginTop: 5 },
-
   editButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -320,7 +632,6 @@ const styles = StyleSheet.create({
     borderColor: "#2e7d32",
   },
   editButtonText: { color: "#2e7d32", fontSize: 14, fontWeight: "600" },
-
   warningBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -333,7 +644,6 @@ const styles = StyleSheet.create({
     borderLeftColor: "#ff6b6b",
   },
   warningText: { flex: 1, fontSize: 12, color: "#856404" },
-
   section: {
     backgroundColor: "#fff",
     marginTop: 15,
@@ -342,8 +652,45 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#e0e0e0",
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#333", marginBottom: 15 },
-
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 15,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#333" },
+  encryptionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#e8f5e9",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: "#2e7d32",
+  },
+  encryptionText: { flex: 1, fontSize: 13, color: "#2e7d32", fontWeight: "600" },
+  permissionCard: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
+    padding: 15,
+    gap: 15,
+  },
+  permissionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  permissionInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  permissionText: { flex: 1 },
+  permissionTitle: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 4 },
+  permissionDesc: { fontSize: 12, color: "#666" },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -355,12 +702,7 @@ const styles = StyleSheet.create({
   infoContent: { flex: 1 },
   infoLabel: { fontSize: 12, color: "#999", marginBottom: 4 },
   infoValue: { fontSize: 16, color: "#333", fontWeight: "500" },
-
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    gap: 10,
-  },
+  statsContainer: { flexDirection: "row", justifyContent: "space-around", gap: 10 },
   statCard: {
     flex: 1,
     backgroundColor: "#f9f9f9",
@@ -372,7 +714,6 @@ const styles = StyleSheet.create({
   },
   statCount: { fontSize: 28, fontWeight: "bold", marginTop: 8 },
   statLabel: { fontSize: 14, color: "#666", marginTop: 4 },
-
   historyButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -382,7 +723,6 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   historyButtonText: { flex: 1, fontSize: 16, color: "#333", fontWeight: "500" },
-
   settingButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -391,8 +731,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
+  deleteAccountButton: {
+    backgroundColor: "#ffebee",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    borderBottomWidth: 0,
+  },
   settingButtonText: { flex: 1, fontSize: 16, fontWeight: "500" },
-
   logoutButton: {
     flexDirection: "row",
     justifyContent: "center",
@@ -405,4 +751,47 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   logoutButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    alignItems: "center",
+  },
+  modalTitle: { fontSize: 22, fontWeight: "bold", color: "#333", marginTop: 16 },
+  modalDesc: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  passwordInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalButtons: { flexDirection: "row", gap: 12, width: "100%" },
+  modalButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  modalButtonCancel: { backgroundColor: "#f5f5f5" },
+  modalButtonDelete: { backgroundColor: "#d32f2f" },
+  modalButtonTextCancel: { color: "#333", fontSize: 16, fontWeight: "600" },
+  modalButtonTextDelete: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });

@@ -53,7 +53,9 @@ export default function AuthScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const { handleGoogleSignIn } = useGoogleAuth();
+  const { signInWithGoogle } = useContext(AuthContext);
+  const { handleGoogleSignIn } = useGoogleAuth(signInWithGoogle);
+
 
   const handleSignUp = async () => {
     if (!email) return Alert.alert("Lỗi", "Vui lòng nhập email để đăng ký.");

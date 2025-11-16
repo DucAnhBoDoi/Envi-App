@@ -19,7 +19,7 @@ import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 import { UserContext } from "../context/UserContext";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
-
+import { PermissionsContext } from "../context/PermissionsContext";
 
 // Danh mục vi phạm
 const VIOLATION_CATEGORIES = [
@@ -73,6 +73,7 @@ export default function ReportScreen({ navigation }) {
   const [showMap, setShowMap] = useState(false);
   const [mapRegion, setMapRegion] = useState(null);
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
+  const { permissions, toggleLocationPermission, checkSystemPermissions } = useContext(PermissionsContext);
 
   useEffect(() => {
     getCurrentLocation();
@@ -115,17 +116,41 @@ export default function ReportScreen({ navigation }) {
   const getCurrentLocation = async () => {
     try {
       setLoadingLocation(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
 
-      if (status !== "granted") {
+      // Refresh permissions
+      await checkSystemPermissions();
+
+      if (!permissions.location) {
         Alert.alert(
-          "Cần quyền truy cập vị trí",
-          "Vui lòng cấp quyền để lấy vị trí hiện tại"
+          "Cần quyền vị trí",
+          "Ứng dụng cần quyền vị trí để xác định vị trí vi phạm.",
+          [
+            { text: "Hủy", style: "cancel" },
+            {
+              text: "Cấp quyền",
+              onPress: async () => {
+                const result = await toggleLocationPermission();
+                if (result.success) {
+                  await getLocationData();
+                }
+              }
+            },
+          ]
         );
         setLoadingLocation(false);
         return;
       }
 
+      await getLocationData();
+    } catch (error) {
+      console.error("Lỗi lấy vị trí:", error);
+      Alert.alert("Lỗi", "Không thể lấy vị trí hiện tại");
+      setLoadingLocation(false);
+    }
+  };
+
+  const getLocationData = async () => {
+    try {
       const loc = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = loc.coords;
 
@@ -137,10 +162,8 @@ export default function ReportScreen({ navigation }) {
         longitudeDelta: 0.01,
       });
 
-      // Lấy địa chỉ từ tọa độ
       const fullAddress = await getAddressFromCoords(latitude, longitude);
       setAddress(fullAddress);
-
     } catch (error) {
       console.error("Lỗi lấy vị trí:", error);
       Alert.alert("Lỗi", "Không thể lấy vị trí hiện tại");
@@ -293,223 +316,223 @@ export default function ReportScreen({ navigation }) {
     }
   };
 
-return (
-  <>
-    <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
+  return (
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
-    {showMap ? (
-      /* ==================== BẢN ĐỒ TOÀN MÀN HÌNH ==================== */
-      <View style={styles.mapContainer}>
-        <MapView
-          style={StyleSheet.absoluteFillObject}
-          region={mapRegion}
-          onPress={handleMapPress}
-        >
-          {selectedMapLocation && <Marker coordinate={selectedMapLocation} />}
-        </MapView>
-
-        <View style={styles.mapButtons}>
-          <TouchableOpacity
-            style={[styles.mapButton, styles.mapButtonCancel]}
-            onPress={() => setShowMap(false)}
+      {showMap ? (
+        /* ==================== BẢN ĐỒ TOÀN MÀN HÌNH ==================== */
+        <View style={styles.mapContainer}>
+          <MapView
+            style={StyleSheet.absoluteFillObject}
+            region={mapRegion}
+            onPress={handleMapPress}
           >
-            <Text style={styles.mapButtonText}>Hủy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.mapButton, styles.mapButtonConfirm]}
-            onPress={confirmMapLocation}
-          >
-            <Text style={styles.mapButtonText}>Xác nhận</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    ) : (
-      /* ==================== FORM BÁO CÁO – CUỘN ĐẸP ==================== */
-      <SafeAreaScrollView showsVerticalScrollIndicator={false}>
-        {/* HEADER – CHUẨN 56PX */}
-        <View style={styles.header}>
-          <Ionicons name="alert-circle" size={32} color="#E53935" />
-          <Text style={styles.headerText}>Báo cáo vi phạm môi trường</Text>
-        </View>
+            {selectedMapLocation && <Marker coordinate={selectedMapLocation} />}
+          </MapView>
 
-        {/* 1. LOẠI VI PHẠM */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Text style={styles.required}>* </Text>
-            Loại vi phạm
-          </Text>
-          <View style={styles.categoriesGrid}>
-            {VIOLATION_CATEGORIES.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                style={[
-                  styles.categoryCard,
-                  { borderColor: category.color },
-                  selectedCategory === category.id && {
-                    backgroundColor: category.color + "15",
-                    borderWidth: 2,
-                  },
-                ]}
-                onPress={() => setSelectedCategory(category.id)}
-              >
-                <Ionicons name={category.icon} size={28} color={category.color} />
-                <Text
+          <View style={styles.mapButtons}>
+            <TouchableOpacity
+              style={[styles.mapButton, styles.mapButtonCancel]}
+              onPress={() => setShowMap(false)}
+            >
+              <Text style={styles.mapButtonText}>Hủy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.mapButton, styles.mapButtonConfirm]}
+              onPress={confirmMapLocation}
+            >
+              <Text style={styles.mapButtonText}>Xác nhận</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        /* ==================== FORM BÁO CÁO – CUỘN ĐẸP ==================== */
+        <SafeAreaScrollView showsVerticalScrollIndicator={false}>
+          {/* HEADER – CHUẨN 56PX */}
+          <View style={styles.header}>
+            <Ionicons name="alert-circle" size={32} color="#E53935" />
+            <Text style={styles.headerText}>Báo cáo vi phạm môi trường</Text>
+          </View>
+
+          {/* 1. LOẠI VI PHẠM */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Text style={styles.required}>* </Text>
+              Loại vi phạm
+            </Text>
+            <View style={styles.categoriesGrid}>
+              {VIOLATION_CATEGORIES.map((category) => (
+                <TouchableOpacity
+                  key={category.id}
                   style={[
-                    styles.categoryText,
+                    styles.categoryCard,
+                    { borderColor: category.color },
                     selectedCategory === category.id && {
-                      fontWeight: "bold",
-                      color: category.color,
+                      backgroundColor: category.color + "15",
+                      borderWidth: 2,
                     },
                   ]}
+                  onPress={() => setSelectedCategory(category.id)}
                 >
-                  {category.name}
+                  <Ionicons name={category.icon} size={28} color={category.color} />
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      selectedCategory === category.id && {
+                        fontWeight: "bold",
+                        color: category.color,
+                      },
+                    ]}
+                  >
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* 2. MÔ TẢ CHI TIẾT */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Text style={styles.required}>* </Text>
+              Mô tả chi tiết
+            </Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Mô tả chi tiết về vi phạm (thời gian, mức độ, hậu quả...)"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={6}
+              textAlignVertical="top"
+              maxLength={500}
+            />
+            <Text style={[styles.charCount, description.length > 450 && { color: "#E53935" }]}>
+              {description.length} / 500 ký tự
+            </Text>
+          </View>
+
+          {/* 3. TẢI ẢNH */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              Hình ảnh minh chứng ({images.length}/5)
+            </Text>
+            <Text style={styles.sectionDesc}>
+              Tải lên ảnh hoặc video để minh chứng vi phạm
+            </Text>
+
+            <View style={styles.imageButtons}>
+              <TouchableOpacity
+                style={[styles.imageButton, images.length >= 5 && styles.imageButtonDisabled]}
+                onPress={takePhoto}
+                disabled={images.length >= 5}
+              >
+                <Ionicons name="camera-outline" size={24} color={images.length >= 5 ? "#999" : "#2e7d32"} />
+                <Text style={[styles.imageButtonText, images.length >= 5 && styles.imageButtonTextDisabled]}>
+                  Chụp ảnh
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
-        {/* 2. MÔ TẢ CHI TIẾT */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Text style={styles.required}>* </Text>
-            Mô tả chi tiết
-          </Text>
-          <TextInput
-            style={styles.textArea}
-            placeholder="Mô tả chi tiết về vi phạm (thời gian, mức độ, hậu quả...)"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={6}
-            textAlignVertical="top"
-            maxLength={500}
-          />
-          <Text style={[styles.charCount, description.length > 450 && { color: "#E53935" }]}>
-            {description.length} / 500 ký tự
-          </Text>
-        </View>
+              <TouchableOpacity
+                style={[styles.imageButton, images.length >= 5 && styles.imageButtonDisabled]}
+                onPress={pickImages}
+                disabled={images.length >= 5}
+              >
+                <Ionicons name="image-outline" size={24} color={images.length >= 5 ? "#999" : "#2e7d32"} />
+                <Text style={[styles.imageButtonText, images.length >= 5 && styles.imageButtonTextDisabled]}>
+                  Chọn từ thư viện
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* 3. TẢI ẢNH */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Hình ảnh minh chứng ({images.length}/5)
-          </Text>
-          <Text style={styles.sectionDesc}>
-            Tải lên ảnh hoặc video để minh chứng vi phạm
-          </Text>
-
-          <View style={styles.imageButtons}>
-            <TouchableOpacity
-              style={[styles.imageButton, images.length >= 5 && styles.imageButtonDisabled]}
-              onPress={takePhoto}
-              disabled={images.length >= 5}
-            >
-              <Ionicons name="camera-outline" size={24} color={images.length >= 5 ? "#999" : "#2e7d32"} />
-              <Text style={[styles.imageButtonText, images.length >= 5 && styles.imageButtonTextDisabled]}>
-                Chụp ảnh
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.imageButton, images.length >= 5 && styles.imageButtonDisabled]}
-              onPress={pickImages}
-              disabled={images.length >= 5}
-            >
-              <Ionicons name="image-outline" size={24} color={images.length >= 5 ? "#999" : "#2e7d32"} />
-              <Text style={[styles.imageButtonText, images.length >= 5 && styles.imageButtonTextDisabled]}>
-                Chọn từ thư viện
-              </Text>
-            </TouchableOpacity>
+            {images.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.imagesPreview}
+              >
+                {images.map((uri, index) => (
+                  <View key={index} style={styles.imagePreviewContainer}>
+                    <Image source={{ uri }} style={styles.imagePreview} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => removeImage(index)}
+                    >
+                      <Ionicons name="close-circle" size={24} color="#E53935" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
-          {images.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.imagesPreview}
-            >
-              {images.map((uri, index) => (
-                <View key={index} style={styles.imagePreviewContainer}>
-                  <Image source={{ uri }} style={styles.imagePreview} />
-                  <TouchableOpacity
-                    style={styles.removeImageButton}
-                    onPress={() => removeImage(index)}
-                  >
-                    <Ionicons name="close-circle" size={24} color="#E53935" />
+          {/* 4. VỊ TRÍ VI PHẠM */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              <Text style={styles.required}>* </Text>
+              Vị trí vi phạm
+            </Text>
+
+            {loadingLocation ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#2e7d32" />
+                <Text style={styles.loadingText}>Đang lấy vị trí...</Text>
+              </View>
+            ) : (
+              <>
+                {location && (
+                  <View style={styles.locationInfo}>
+                    <Ionicons name="location" size={20} color="#2e7d32" />
+                    <Text style={styles.locationText}>
+                      {address || "Đang xác định địa chỉ..."}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.locationButtons}>
+                  <TouchableOpacity style={styles.locationButton} onPress={getCurrentLocation}>
+                    <Ionicons name="navigate" size={20} color="#2e7d32" />
+                    <Text style={styles.locationButtonText}>Vị trí hiện tại</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.locationButton} onPress={() => setShowMap(true)}>
+                    <Ionicons name="map" size={20} color="#2e7d32" />
+                    <Text style={styles.locationButtonText}>Chọn trên bản đồ</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
-            </ScrollView>
-          )}
-        </View>
+              </>
+            )}
+          </View>
 
-        {/* 4. VỊ TRÍ VI PHẠM */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            <Text style={styles.required}>* </Text>
-            Vị trí vi phạm
-          </Text>
+          {/* 5. LƯU Ý */}
+          <View style={styles.tipsCard}>
+            <Text style={styles.tipsTitle}>Lưu ý khi báo cáo</Text>
+            <Text style={styles.tipsText}>
+              • Cung cấp thông tin chính xác và trung thực{"\n"}
+              • Tải lên hình ảnh rõ ràng, không chỉnh sửa{"\n"}
+              • Mô tả chi tiết để xử lý nhanh chóng{"\n"}
+              • Báo cáo sẽ được xem xét trong 24-48 giờ
+            </Text>
+          </View>
 
-          {loadingLocation ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#2e7d32" />
-              <Text style={styles.loadingText}>Đang lấy vị trí...</Text>
-            </View>
-          ) : (
-            <>
-              {location && (
-                <View style={styles.locationInfo}>
-                  <Ionicons name="location" size={20} color="#2e7d32" />
-                  <Text style={styles.locationText}>
-                    {address || "Đang xác định địa chỉ..."}
-                  </Text>
-                </View>
-              )}
+          {/* KHOẢNG CÁCH ĐẸP GIỮA LƯU Ý VÀ NÚT GỬI */}
+          <View style={{ height: 10 }} />
 
-              <View style={styles.locationButtons}>
-                <TouchableOpacity style={styles.locationButton} onPress={getCurrentLocation}>
-                  <Ionicons name="navigate" size={20} color="#2e7d32" />
-                  <Text style={styles.locationButtonText}>Vị trí hiện tại</Text>
-                </TouchableOpacity>
+          {/* NÚT GỬI BÁO CÁO – CUỘN THEO, ĐẸP RIÊNG, KHÔNG DÍNH LƯU Ý */}
+          <View style={styles.submitWrapper}>
+            <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
+              <Ionicons name="send" size={20} color="#fff" />
+              <Text style={styles.submitButtonText}>Gửi báo cáo</Text>
+            </TouchableOpacity>
+          </View>
 
-                <TouchableOpacity style={styles.locationButton} onPress={() => setShowMap(true)}>
-                  <Ionicons name="map" size={20} color="#2e7d32" />
-                  <Text style={styles.locationButtonText}>Chọn trên bản đồ</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
-
-        {/* 5. LƯU Ý */}
-        <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>Lưu ý khi báo cáo</Text>
-          <Text style={styles.tipsText}>
-            • Cung cấp thông tin chính xác và trung thực{"\n"}
-            • Tải lên hình ảnh rõ ràng, không chỉnh sửa{"\n"}
-            • Mô tả chi tiết để xử lý nhanh chóng{"\n"}
-            • Báo cáo sẽ được xem xét trong 24-48 giờ
-          </Text>
-        </View>
-
-        {/* KHOẢNG CÁCH ĐẸP GIỮA LƯU Ý VÀ NÚT GỬI */}
-        <View style={{ height: 10 }} />
-
-        {/* NÚT GỬI BÁO CÁO – CUỘN THEO, ĐẸP RIÊNG, KHÔNG DÍNH LƯU Ý */}
-        <View style={styles.submitWrapper}>
-          <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
-            <Ionicons name="send" size={20} color="#fff" />
-            <Text style={styles.submitButtonText}>Gửi báo cáo</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ĐỆM CUỐI ĐỂ KHÔNG BỊ CHE TAB BAR */}
-        <View style={{ height: 10 }} />
-      </SafeAreaScrollView>
-    )}
-  </>
-);
+          {/* ĐỆM CUỐI ĐỂ KHÔNG BỊ CHE TAB BAR */}
+          <View style={{ height: 10 }} />
+        </SafeAreaScrollView>
+      )}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -771,9 +794,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   submitWrapper: {
-  marginHorizontal: 15,
-  padding: 16,
-  borderRadius: 16,
-  alignItems: "center",
-},
+    marginHorizontal: 15,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+  },
 });
