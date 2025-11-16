@@ -17,6 +17,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   TouchableWithoutFeedback,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../context/UserContext";
@@ -25,7 +26,7 @@ import { Video } from "expo-av";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
 
-export default function CommunityScreen() {
+export default function CommunityScreen({ navigation }) {
   const {
     communityPosts = [],
     communityGroups = [],
@@ -75,7 +76,7 @@ export default function CommunityScreen() {
 
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showGroupDetail, setShowGroupDetail] = useState(false);
-  
+
   // Comment modal states
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
@@ -171,7 +172,7 @@ export default function CommunityScreen() {
   };
 
   // Add comment with image - VERSION ĐƠN GIẢN, KHÔNG RELOAD
-// Add comment with image - FIX: Giữ comment khi có ảnh
+  // Add comment with image - FIX: Giữ comment khi có ảnh
   const handleAddComment = async (postId) => {
     const text = currentComment.trim();
     if (!text && !commentImage) return;
@@ -198,33 +199,33 @@ export default function CommunityScreen() {
     // ✅ Thêm comment vào UI ngay lập tức
     const updatedComments = [...(selectedPost?.comments || []), newComment];
     const updatedPost = { ...selectedPost, comments: updatedComments };
-    
+
     setSelectedPost(updatedPost);
-    setLocalPosts(prevPosts => 
+    setLocalPosts(prevPosts =>
       prevPosts.map(p => p.id === postId ? updatedPost : p)
     );
 
     // ✅ Upload lên server ở background
     try {
       const res = await addCommentToPost(postId, commentToSend, imageToSend);
-      
+
       if (res?.success) {
         console.log("✅ Comment đã được lưu trên server");
-        
+
         // ✅ Nếu có ảnh, cập nhật comment với Cloudinary URL KHÔNG XÓA
         if (imageToSend && res.comment) {
           // Thay thế comment tạm bằng comment thật từ server
           setSelectedPost(prev => ({
             ...prev,
-            comments: (prev?.comments || []).map(c => 
+            comments: (prev?.comments || []).map(c =>
               c.id === tempId ? { ...res.comment, uploading: false } : c
             )
           }));
-          
-          setLocalPosts(prevPosts => 
+
+          setLocalPosts(prevPosts =>
             prevPosts.map(p => p.id === postId ? ({
               ...p,
-              comments: (p.comments || []).map(c => 
+              comments: (p.comments || []).map(c =>
                 c.id === tempId ? { ...res.comment, uploading: false } : c
               )
             }) : p)
@@ -233,35 +234,35 @@ export default function CommunityScreen() {
           // Không có ảnh, chỉ đánh dấu đã upload
           setSelectedPost(prev => ({
             ...prev,
-            comments: (prev?.comments || []).map(c => 
+            comments: (prev?.comments || []).map(c =>
               c.id === tempId ? { ...c, uploading: false, id: res.comment?.id || c.id } : c
             )
           }));
-          
-          setLocalPosts(prevPosts => 
+
+          setLocalPosts(prevPosts =>
             prevPosts.map(p => p.id === postId ? ({
               ...p,
-              comments: (p.comments || []).map(c => 
+              comments: (p.comments || []).map(c =>
                 c.id === tempId ? { ...c, uploading: false, id: res.comment?.id || c.id } : c
               )
             }) : p)
           );
         }
-        
+
       } else {
         // ❌ Nếu lỗi, xóa comment tạm
         Alert.alert("Lỗi", res?.error || "Không thể gửi bình luận");
-        
+
         const rollbackComments = (selectedPost?.comments || []).filter(
           c => c.id !== tempId
         );
         const rollbackPost = { ...selectedPost, comments: rollbackComments };
-        
+
         setSelectedPost(rollbackPost);
-        setLocalPosts(prevPosts => 
+        setLocalPosts(prevPosts =>
           prevPosts.map(p => p.id === postId ? rollbackPost : p)
         );
-        
+
         // Khôi phục input
         setCurrentComment(commentToSend);
         setCommentImage(imageToSend);
@@ -269,18 +270,18 @@ export default function CommunityScreen() {
     } catch (error) {
       console.error("❌ Lỗi khi gửi comment:", error);
       Alert.alert("Lỗi", "Không thể gửi bình luận");
-      
+
       // Rollback
       const rollbackComments = (selectedPost?.comments || []).filter(
         c => c.id !== tempId
       );
       const rollbackPost = { ...selectedPost, comments: rollbackComments };
-      
+
       setSelectedPost(rollbackPost);
-      setLocalPosts(prevPosts => 
+      setLocalPosts(prevPosts =>
         prevPosts.map(p => p.id === postId ? rollbackPost : p)
       );
-      
+
       setCurrentComment(commentToSend);
       setCommentImage(imageToSend);
     }
@@ -323,35 +324,35 @@ export default function CommunityScreen() {
         onPress: async () => {
           // ✅ Lưu comment để rollback nếu cần
           const commentToDelete = (selectedPost?.comments || []).find(c => c.id === commentId);
-          
+
           // ✅ Xóa ngay trên UI
           const updatedComments = (selectedPost?.comments || []).filter(
             c => c.id !== commentId
           );
           const updatedPost = { ...selectedPost, comments: updatedComments };
-          
+
           setSelectedPost(updatedPost);
-          setLocalPosts(prevPosts => 
+          setLocalPosts(prevPosts =>
             prevPosts.map(p => p.id === postId ? updatedPost : p)
           );
 
           // ✅ Xóa trên server ở background
           try {
             const res = await deleteComment(postId, commentId);
-            
+
             if (res?.success) {
               console.log("✅ Đã xóa comment trên server");
               // Không cần reload, UI đã update rồi
             } else {
               // ❌ Nếu lỗi, khôi phục lại comment
               Alert.alert("Lỗi", "Không thể xóa bình luận");
-              
+
               if (commentToDelete) {
                 const rollbackComments = [...updatedComments, commentToDelete];
                 const rollbackPost = { ...selectedPost, comments: rollbackComments };
-                
+
                 setSelectedPost(rollbackPost);
-                setLocalPosts(prevPosts => 
+                setLocalPosts(prevPosts =>
                   prevPosts.map(p => p.id === postId ? rollbackPost : p)
                 );
               }
@@ -359,14 +360,14 @@ export default function CommunityScreen() {
           } catch (error) {
             console.error("❌ Lỗi xóa comment:", error);
             Alert.alert("Lỗi", "Không thể xóa bình luận");
-            
+
             // Rollback
             if (commentToDelete) {
               const rollbackComments = [...updatedComments, commentToDelete];
               const rollbackPost = { ...selectedPost, comments: rollbackComments };
-              
+
               setSelectedPost(rollbackPost);
-              setLocalPosts(prevPosts => 
+              setLocalPosts(prevPosts =>
                 prevPosts.map(p => p.id === postId ? rollbackPost : p)
               );
             }
@@ -379,8 +380,8 @@ export default function CommunityScreen() {
   // Share post
   const handleSharePost = async (post) => {
     try {
-      const message = `${post.content}\n\n- Chia sẻ từ Green Hanoi App`;
-      
+      const message = `${post.content}\n\n- Chia sẻ từ Green App`;
+
       const result = await Share.share(
         {
           message: message,
@@ -596,8 +597,8 @@ export default function CommunityScreen() {
 
               {/* Image */}
               {post.type === "image" && post.image && (
-                <Image 
-                  source={{ uri: post.image }} 
+                <Image
+                  source={{ uri: post.image }}
                   style={styles.postMediaImage}
                   resizeMode="cover"
                 />
@@ -780,6 +781,16 @@ export default function CommunityScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+
+      {/* === HEADER ĐỒNG BỘ 100% === */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#222" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Cộng đồng</Text>
+        <View style={{ width: 40 }} />
+      </View>
       {/* Tabs */}
       <View style={styles.tabs}>
         <TouchableOpacity
@@ -1156,28 +1167,34 @@ export default function CommunityScreen() {
                       return (
                         <View key={c.id || idx} style={styles.commentRowModal}>
                           <View style={styles.commentAvatarContainer}>
-                            {c.photoURL ? (
-                              <Image
-                                source={{ uri: c.photoURL }}
-                                style={styles.commentAvatar}
-                              />
-                            ) : (
-                              <View style={styles.commentAvatarPlaceholder}>
-                                <Text style={styles.commentAvatarText}>
-                                  {c.name?.[0]?.toUpperCase() || "👤"}
-                                </Text>
-                              </View>
-                            )}
+                            {(() => {
+                              const isMyComment = c.uid === (userProfile?.uid || "guest");
+                              const avatarUrl = isMyComment
+                                ? (userProfile?.photoURL || c.photoURL)
+                                : c.photoURL;
+
+                              return avatarUrl ? (
+                                <Image
+                                  source={{ uri: avatarUrl }}
+                                  style={styles.commentAvatar}
+                                />
+                              ) : (
+                                <View style={styles.commentAvatarPlaceholder}>
+                                  <Text style={styles.commentAvatarText}>
+                                    {c.name?.[0]?.toUpperCase() || "User"}
+                                  </Text>
+                                </View>
+                              );
+                            })()}
                           </View>
+
                           <View style={styles.commentBubbleContainer}>
                             <View style={styles.commentBubble}>
                               <Text style={styles.commentAuthor}>{c.name}</Text>
-                              {c.text && (
-                                <Text style={styles.commentText}>{c.text}</Text>
-                              )}
+                              {c.text && <Text style={styles.commentText}>{c.text}</Text>}
                               {c.image && (
-                                <Image 
-                                  source={{ uri: c.image }} 
+                                <Image
+                                  source={{ uri: c.image }}
                                   style={styles.commentImagePreview}
                                   resizeMode="cover"
                                 />
@@ -1187,7 +1204,8 @@ export default function CommunityScreen() {
                               {new Date(c.timestamp).toLocaleString("vi-VN")}
                             </Text>
                           </View>
-                          {isMyComment && (
+
+                          {c.uid === (userProfile?.uid || "guest") && (
                             <TouchableOpacity
                               style={styles.deleteCommentBtn}
                               onPress={() => handleDeleteComment(selectedPost.id, c.id)}
@@ -1207,8 +1225,8 @@ export default function CommunityScreen() {
             <View style={styles.commentInputContainer}>
               {commentImage && (
                 <View style={styles.commentImagePreviewContainer}>
-                  <Image 
-                    source={{ uri: commentImage }} 
+                  <Image
+                    source={{ uri: commentImage }}
                     style={styles.commentImagePreviewThumb}
                   />
                   <TouchableOpacity
@@ -1220,7 +1238,7 @@ export default function CommunityScreen() {
                 </View>
               )}
               <View style={styles.commentInputWrapper}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.imagePickerBtn}
                   onPress={pickCommentImage}
                 >
@@ -1263,7 +1281,31 @@ export default function CommunityScreen() {
 
 // Styles (giữ nguyên từ file gốc)
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#f8f9fa" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: "#f8f9fa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#222",
+    marginLeft: 12,
+  },
   tabs: { flexDirection: "row", backgroundColor: "#fff", elevation: 2 },
   tab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, gap: 6 },
   activeTab: { borderBottomWidth: 3, borderBottomColor: "#2e7d32" },
@@ -1272,13 +1314,13 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f5f5f5" },
   loadingText: { marginTop: 12, fontSize: 15, color: "#666" },
-  
+
   createPostButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", margin: 16, padding: 16, borderRadius: 12, elevation: 1, gap: 12 },
   createPostText: { fontSize: 16, color: "#666" },
-  
+
   emptyContainer: { alignItems: "center", justifyContent: "center", paddingVertical: 60 },
   emptyText: { fontSize: 16, color: "#999", marginTop: 16, textAlign: "center", paddingHorizontal: 40 },
-  
+
   postCard: { backgroundColor: "#fff", marginHorizontal: 16, marginBottom: 16, borderRadius: 12, padding: 16, elevation: 2 },
   postHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   avatarContainer: { marginRight: 12 },
@@ -1289,21 +1331,21 @@ const styles = StyleSheet.create({
   userName: { fontSize: 16, fontWeight: "600", color: "#333" },
   postTime: { fontSize: 13, color: "#999", marginTop: 2 },
   deleteButton: { padding: 4 },
-  
+
   postContent: { fontSize: 15, color: "#333", lineHeight: 22, marginBottom: 12 },
   postMediaImage: { width: "100%", height: 250, borderRadius: 8, marginBottom: 12 },
   postMediaVideo: { width: "100%", height: 250, borderRadius: 8, marginBottom: 12 },
-  
+
   postStats: { paddingVertical: 8, borderTopWidth: 1, borderTopColor: "#eee" },
   statText: { fontSize: 13, color: "#666" },
-  
+
   postActions: { flexDirection: "row", paddingTop: 8, borderTopWidth: 1, borderTopColor: "#eee" },
   actionButton: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   actionText: { fontSize: 14, color: "#666", fontWeight: "500" },
   likedText: { color: "#FF6B6B" },
-  
+
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#2e7d32", marginHorizontal: 16, marginTop: 16, marginBottom: 12 },
-  
+
   groupCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", marginHorizontal: 16, marginBottom: 12, padding: 16, borderRadius: 12, elevation: 1 },
   groupIcon: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", marginRight: 12 },
   groupEmoji: { fontSize: 28 },
@@ -1312,86 +1354,86 @@ const styles = StyleSheet.create({
   groupLocation: { fontSize: 13, color: "#666", marginTop: 2 },
   groupMembers: { fontSize: 13, color: "#999", marginTop: 4 },
   creatorBadge: { fontSize: 12, color: "#2e7d32", marginTop: 4, fontWeight: "600" },
-  
+
   createGroupButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 12, elevation: 1, gap: 8 },
   createGroupText: { fontSize: 16, color: "#2e7d32", fontWeight: "600" },
-  
+
   primaryButton: { marginTop: 20, backgroundColor: "#2e7d32", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 8 },
   primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  
+
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
   modalContent: { backgroundColor: "#fff", width: "90%", maxHeight: "80%", borderRadius: 16, padding: 20 },
   modalContentCompact: { backgroundColor: "#fff", width: "90%", maxHeight: "75%", borderRadius: 16, padding: 20 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   modalTitle: { fontSize: 20, fontWeight: "700", color: "#333" },
-  
+
   input: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 12, fontSize: 15, textAlignVertical: "top", minHeight: 120, marginBottom: 16 },
   inputCompact: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 12, fontSize: 15, marginBottom: 12 },
-  
+
   previewContainer: { position: "relative", marginBottom: 16 },
   previewImage: { width: "100%", height: 200, borderRadius: 8 },
   previewVideo: { width: "100%", height: 200, borderRadius: 8 },
   removeMediaButton: { position: "absolute", top: 8, right: 8, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 20 },
-  
+
   modalActions: { flexDirection: "row", gap: 16, marginBottom: 16 },
   iconButton: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", padding: 12, backgroundColor: "#f5f5f5", borderRadius: 8, gap: 8 },
   iconButtonText: { fontSize: 15, fontWeight: "500", color: "#333" },
-  
+
   submitButton: { backgroundColor: "#2e7d32", padding: 16, borderRadius: 8, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   submitButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  
+
   scrollArea: { maxHeight: 350 },
   row: { flexDirection: "row", gap: 12 },
   inputHalf: { flex: 1 },
   labelCompact: { fontSize: 15, fontWeight: "600", color: "#333", marginBottom: 8 },
-  
+
   iconSelectorCompact: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 16 },
   iconOptionCompact: { width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: "#ddd", alignItems: "center", justifyContent: "center" },
   iconOptionSelected: { borderColor: "#2e7d32", borderWidth: 3 },
   iconOptionTextCompact: { fontSize: 24 },
-  
+
   colorSelectorCompact: { flexDirection: "row", gap: 12, marginBottom: 16 },
   colorOptionCompact: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#ddd" },
   colorOptionSelected: { borderColor: "#333", borderWidth: 3 },
-  
+
   groupDetailHeader: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
   groupDetailInfo: { flex: 1, marginLeft: 12 },
   groupDetailName: { fontSize: 20, fontWeight: "700", color: "#333" },
   groupDescription: { fontSize: 15, color: "#666", lineHeight: 22, marginBottom: 20, paddingHorizontal: 8 },
-  
+
   deleteGroupButton: { backgroundColor: "#e53935", marginTop: 12 },
-  
+
   // Comment Modal Styles
   commentModalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
   commentModalContainer: { flex: 1, marginTop: "20%", backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   commentModalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#eee" },
   commentModalTitle: { fontSize: 18, fontWeight: "700", color: "#333" },
   closeModalBtn: { padding: 4 },
-  
+
   commentsList: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   emptyComments: { alignItems: "center", paddingVertical: 60 },
   emptyCommentsText: { fontSize: 15, color: "#999", marginTop: 16, textAlign: "center" },
-  
+
   commentRowModal: { flexDirection: "row", marginBottom: 20, alignItems: "flex-start" },
   commentAvatarContainer: { marginRight: 12 },
   commentAvatar: { width: 40, height: 40, borderRadius: 20 },
   commentAvatarPlaceholder: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#2e7d32", alignItems: "center", justifyContent: "center" },
   commentAvatarText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  
+
   commentBubbleContainer: { flex: 1 },
   commentBubble: { backgroundColor: "#f0f0f0", borderRadius: 12, padding: 12 },
   commentAuthor: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 4 },
   commentText: { fontSize: 14, color: "#333", lineHeight: 20 },
   commentImagePreview: { width: "100%", height: 150, borderRadius: 8, marginTop: 8 },
   commentTimeModal: { fontSize: 12, color: "#999", marginTop: 4, marginLeft: 4 },
-  
+
   deleteCommentBtn: { padding: 4, marginLeft: 8 },
-  
+
   commentInputContainer: { borderTopWidth: 1, borderTopColor: "#eee", backgroundColor: "#fff", paddingBottom: Platform.OS === "ios" ? 34 : 16 },
   commentImagePreviewContainer: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 12 },
   commentImagePreviewThumb: { width: 60, height: 60, borderRadius: 8 },
   removeCommentImage: { position: "absolute", top: 8, right: 12, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12 },
-  
+
   commentInputWrapper: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 12, gap: 8 },
   imagePickerBtn: { padding: 8 },
   commentInputModal: { flex: 1, backgroundColor: "#f5f5f5", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, maxHeight: 100 },

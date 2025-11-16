@@ -1,5 +1,5 @@
 // src/screens/WasteGuideScreen.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -19,9 +19,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { IMAGGA_API_KEY, IMAGGA_API_SECRET } from "@env";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
+import { UserContext } from "../context/UserContext";
 
-
-// Dữ liệu chi tiết về các loại rác
 const WASTE_TYPES = [
   {
     type: "Hữu cơ",
@@ -105,7 +104,6 @@ const WASTE_TYPES = [
   },
 ];
 
-// Dữ liệu vật phẩm thông dụng
 const COMMON_ITEMS = {
   "chai nhựa": { type: "Nhựa", icon: "💧" },
   "túi nilon": { type: "Nhựa", icon: "🛍️" },
@@ -126,7 +124,6 @@ const COMMON_ITEMS = {
   "hộp carton": { type: "Giấy", icon: "📦" },
 };
 
-// Mapping loại rác sang các địa điểm tìm kiếm
 const WASTE_TYPE_SEARCH = {
   "Y tế": ["hospital", "clinic", "pharmacy"],
   "Điện tử": ["recycling", "electronics"],
@@ -137,6 +134,9 @@ const WASTE_TYPE_SEARCH = {
 };
 
 export default function WasteGuideScreen() {
+  // ✅ Kết nối UserContext
+  const { addWasteClassification } = useContext(UserContext);
+
   const [selectedType, setSelectedType] = useState(null);
   const [search, setSearch] = useState("");
   const [pickedImage, setPickedImage] = useState(null);
@@ -173,7 +173,6 @@ export default function WasteGuideScreen() {
     }
   };
 
-  // Hàm tính khoảng cách giữa 2 điểm
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -188,7 +187,6 @@ export default function WasteGuideScreen() {
     return R * c;
   };
 
-  // Fetch địa điểm sử dụng Nominatim API (miễn phí 100%)
   const fetchNearbyLocations = async () => {
     if (!location || !selectedType) return;
 
@@ -201,10 +199,8 @@ export default function WasteGuideScreen() {
 
       let allResults = [];
 
-      // Tìm kiếm với các từ khóa khác nhau
       for (const term of searchTerms) {
         try {
-          // Nominatim API - miễn phí, không cần key
           const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
             term
           )}&lat=${latitude}&lon=${longitude}&bounded=1&viewbox=${longitude - 0.05
@@ -212,7 +208,7 @@ export default function WasteGuideScreen() {
 
           const response = await fetch(url, {
             headers: {
-              "User-Agent": "WasteGuideApp/1.0", // Nominatim yêu cầu User-Agent
+              "User-Agent": "WasteGuideApp/1.0",
             },
           });
 
@@ -223,14 +219,12 @@ export default function WasteGuideScreen() {
             }
           }
 
-          // Delay giữa các request để tránh rate limit
           await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (err) {
           console.error(`Error searching for ${term}:`, err);
         }
       }
 
-      // Loại bỏ trùng lặp
       const uniqueResults = Array.from(
         new Map(allResults.map((item) => [item.place_id, item])).values()
       );
@@ -252,7 +246,7 @@ export default function WasteGuideScreen() {
               types: [selectedType],
             };
           })
-          .filter((loc) => loc.distance <= 10) // Chỉ lấy trong bán kính 10km
+          .filter((loc) => loc.distance <= 10)
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 5);
 
@@ -272,7 +266,6 @@ export default function WasteGuideScreen() {
     }
   };
 
-  // Dữ liệu dự phòng cho TP.HCM
   const useFallbackData = () => {
     if (!location) return;
 
@@ -374,65 +367,73 @@ export default function WasteGuideScreen() {
     }
   };
 
-  // Hàm xử lý ảnh với Imagga
+  // ✅ CẬP NHẬT: Lưu vào UserContext khi AI nhận dạng thành công
   const analyzeImageWithImagga = async (imageUri) => {
-  try {
-    setAiProcessing(true);
-    setAiResult(null);
+    try {
+      setAiProcessing(true);
+      setAiResult(null);
 
-    const formData = new FormData();
-    formData.append("image", {
-      uri: imageUri,
-      type: "image/jpeg",
-      name: "photo.jpg",
-    });
+      const formData = new FormData();
+      formData.append("image", {
+        uri: imageUri,
+        type: "image/jpeg",
+        name: "photo.jpg",
+      });
 
-    const res = await fetch("https://api.imagga.com/v2/tags", {
-      method: "POST",
-      headers: {
-        Authorization:
-          "Basic " + btoa(`${IMAGGA_API_KEY}:${IMAGGA_API_SECRET}`),
-      },
-      body: formData,
-    });
+      const res = await fetch("https://api.imagga.com/v2/tags", {
+        method: "POST",
+        headers: {
+          Authorization:
+            "Basic " + btoa(`${IMAGGA_API_KEY}:${IMAGGA_API_SECRET}`),
+        },
+        body: formData,
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.result && data.result.tags.length > 0) {
-      const tags = data.result.tags.map((t) => t.tag.en.toLowerCase());
-      console.log("AI tags:", tags);
+      if (data.result && data.result.tags.length > 0) {
+        const tags = data.result.tags.map((t) => t.tag.en.toLowerCase());
+        console.log("AI tags:", tags);
 
-      let recognizedType = "Khác";
-      if (tags.some((t) => t.includes("plastic") || t.includes("bottle") || t.includes("bag"))) {
-        recognizedType = "Nhựa";
-      } else if (tags.some((t) => t.includes("paper") || t.includes("cardboard"))) {
-        recognizedType = "Giấy";
-      } else if (tags.some((t) => t.includes("metal") || t.includes("tin") || t.includes("aluminum"))) {
-        recognizedType = "Kim loại";
-      } else if (tags.some((t) => t.includes("food") || t.includes("fruit") || t.includes("vegetable"))) {
-        recognizedType = "Hữu cơ";
-      } else if (tags.some((t) => t.includes("battery") || t.includes("phone") || t.includes("computer"))) {
-        recognizedType = "Điện tử";
-      } else if (tags.some((t) => t.includes("mask") || t.includes("syringe"))) {
-        recognizedType = "Y tế";
+        let recognizedType = "Khác";
+        if (tags.some((t) => t.includes("plastic") || t.includes("bottle") || t.includes("bag"))) {
+          recognizedType = "Nhựa";
+        } else if (tags.some((t) => t.includes("paper") || t.includes("cardboard"))) {
+          recognizedType = "Giấy";
+        } else if (tags.some((t) => t.includes("metal") || t.includes("tin") || t.includes("aluminum"))) {
+          recognizedType = "Kim loại";
+        } else if (tags.some((t) => t.includes("food") || t.includes("fruit") || t.includes("vegetable"))) {
+          recognizedType = "Hữu cơ";
+        } else if (tags.some((t) => t.includes("battery") || t.includes("phone") || t.includes("computer"))) {
+          recognizedType = "Điện tử";
+        } else if (tags.some((t) => t.includes("mask") || t.includes("syringe"))) {
+          recognizedType = "Y tế";
+        }
+
+        setAiResult(recognizedType);
+        setSelectedType(recognizedType);
+
+        // ✅ LƯU VÀO USERCONTEXT - Thưởng 5 điểm
+        if (recognizedType !== "Khác") {
+          await addWasteClassification(recognizedType, imageUri);
+          Alert.alert(
+            "Nhận dạng thành công! 🎉", 
+            `Rác được phân loại là: ${recognizedType}\n+5 điểm tích lũy!`
+          );
+        } else {
+          Alert.alert("Nhận dạng thành công", `Rác được phân loại là: ${recognizedType}`);
+        }
+      } else {
+        Alert.alert("Không nhận dạng được", "Hãy thử lại với ảnh rõ nét hơn.");
       }
-
-      setAiResult(recognizedType);
-      setSelectedType(recognizedType);
-      Alert.alert("Nhận dạng thành công", `Rác được phân loại là: ${recognizedType}`);
-    } else {
-      Alert.alert("Không nhận dạng được", "Hãy thử lại với ảnh rõ nét hơn.");
+    } catch (error) {
+      console.error("Lỗi Imagga:", error);
+      Alert.alert("Lỗi", "Không thể kết nối Imagga API.");
+    } finally {
+      setAiProcessing(false);
     }
-  } catch (error) {
-    console.error("Lỗi Imagga:", error);
-    Alert.alert("Lỗi", "Không thể kết nối Imagga API.");
-  } finally {
-    setAiProcessing(false);
-  }
-};
+  };
 
-
-  // 📸 Chụp ảnh
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (permission.granted) {
@@ -449,7 +450,6 @@ export default function WasteGuideScreen() {
     }
   };
 
-  // 🖼 Chọn ảnh từ thư viện
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -492,247 +492,240 @@ export default function WasteGuideScreen() {
     }
   };
 
-return (
-  <>
-    <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
+  return (
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
-    <SafeAreaScrollView showsVerticalScrollIndicator={false}>
-      {/* HEADER – GIỐNG HỆT AQI */}
-      <View style={styles.header}>
-        <Ionicons name="reload-circle" size={32} color="#2e7d32" />
-        <Text style={styles.headerText}>Hướng dẫn xử lý rác thải</Text>
-      </View>
+      <SafeAreaScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Ionicons name="reload-circle" size={32} color="#2e7d32" />
+          <Text style={styles.headerText}>Hướng dẫn xử lý rác thải</Text>
+        </View>
 
-      {/* TÌM KIẾM */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tìm kiếm hướng dẫn</Text>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#555" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Nhập tên vật phẩm (vd: chai nhựa, pin...)"
-            value={search}
-            onChangeText={setSearch}
-            onSubmitEditing={searchWasteGuide}
-          />
+        {/* TÌM KIẾM */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tìm kiếm hướng dẫn</Text>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#555" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Nhập tên vật phẩm (vd: chai nhựa, pin...)"
+              value={search}
+              onChangeText={setSearch}
+              onSubmitEditing={searchWasteGuide}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={20} color="#999" />
+              </TouchableOpacity>
+            )}
+          </View>
+
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")}>
-              <Ionicons name="close-circle" size={20} color="#999" />
-            </TouchableOpacity>
+            <View style={styles.searchResults}>
+              {Object.entries(COMMON_ITEMS)
+                .filter(([item]) => item.toLowerCase().includes(search.toLowerCase()))
+                .slice(0, 5)
+                .map(([item, data]) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={styles.searchResultItem}
+                    onPress={() => {
+                      setSearch(item);
+                      setSelectedType(data.type);
+                    }}
+                  >
+                    <Text style={styles.searchResultIcon}>{data.icon}</Text>
+                    <Text style={styles.searchResultText}>{item}</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#999" />
+                  </TouchableOpacity>
+                ))}
+            </View>
           )}
         </View>
 
-        {search.length > 0 && (
-          <View style={styles.searchResults}>
-            {Object.entries(COMMON_ITEMS)
-              .filter(([item]) => item.toLowerCase().includes(search.toLowerCase()))
-              .slice(0, 5)
-              .map(([item, data]) => (
-                <TouchableOpacity
-                  key={item}
-                  style={styles.searchResultItem}
-                  onPress={() => {
-                    setSearch(item);
-                    setSelectedType(data.type);
-                  }}
-                >
-                  <Text style={styles.searchResultIcon}>{data.icon}</Text>
-                  <Text style={styles.searchResultText}>{item}</Text>
-                  <Ionicons name="arrow-forward" size={16} color="#999" />
-                </TouchableOpacity>
-              ))}
+        {/* AI NHẬN DẠNG */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Nhận dạng bằng AI (+5 điểm)</Text>
+          <Text style={styles.sectionDesc}>
+            Chụp hoặc tải lên hình ảnh rác để AI tự động phân loại
+          </Text>
+
+          <View style={styles.aiButtons}>
+            <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
+              <Ionicons name="camera-outline" size={24} color="#2e7d32" />
+              <Text style={styles.imageButtonText}>Chụp ảnh</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+              <Ionicons name="image-outline" size={24} color="#2e7d32" />
+              <Text style={styles.imageButtonText}>Chọn từ thư viện</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
 
-      {/* AI NHẬN DẠNG */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Nhận dạng bằng AI</Text>
-        <Text style={styles.sectionDesc}>
-          Chụp hoặc tải lên hình ảnh rác để AI tự động phân loại
-        </Text>
+          {pickedImage && (
+            <View style={styles.imagePreviewContainer}>
+              <Image source={{ uri: pickedImage }} style={styles.previewImage} />
+              {aiProcessing && (
+                <View style={styles.processingOverlay}>
+                  <ActivityIndicator size="large" color="#2e7d32" />
+                  <Text style={styles.processingText}>Đang phân tích...</Text>
+                </View>
+              )}
+            </View>
+          )}
 
-        <View style={styles.aiButtons}>
-          <TouchableOpacity style={styles.imageButton} onPress={takePhoto}>
-            <Ionicons name="camera-outline" size={24} color="#2e7d32" />
-            <Text style={styles.imageButtonText}>Chụp ảnh</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
-            <Ionicons name="image-outline" size={24} color="#2e7d32" />
-            <Text style={styles.imageButtonText}>Chọn từ thư viện</Text>
-          </TouchableOpacity>
+          {aiResult && !aiProcessing && (
+            <View style={styles.aiResultBox}>
+              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+              <Text style={styles.aiResultText}>
+                AI nhận dạng: <Text style={styles.aiResultBold}>{aiResult}</Text>
+              </Text>
+            </View>
+          )}
         </View>
 
-        {pickedImage && (
-          <View style={styles.imagePreviewContainer}>
-            <Image source={{ uri: pickedImage }} style={styles.previewImage} />
-            {aiProcessing && (
-              <View style={styles.processingOverlay}>
-                <ActivityIndicator size="large" color="#2e7d32" />
-                <Text style={styles.processingText}>Đang phân tích...</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {aiResult && !aiProcessing && (
-          <View style={styles.aiResultBox}>
-            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-            <Text style={styles.aiResultText}>
-              AI nhận dạng: <Text style={styles.aiResultBold}>{aiResult}</Text>
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* PHÂN LOẠI RÁC */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Phân loại rác thải</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.wasteTypesScroll}
-        >
-          {WASTE_TYPES.map((waste) => (
-            <TouchableOpacity
-              key={waste.type}
-              style={[
-                styles.wasteCard,
-                { borderColor: waste.color },
-                selectedType === waste.type && {
-                  backgroundColor: waste.color + "15",
-                  borderWidth: 2,
-                },
-              ]}
-              onPress={() => setSelectedType(waste.type)}
-            >
-              <Ionicons name={waste.icon} size={32} color={waste.color} />
-              <Text style={[styles.wasteCardTitle, { color: waste.color }]}>
-                {waste.type}
-              </Text>
-              <Text style={styles.wasteCardDesc}>{waste.description}</Text>
-              {waste.hazardous && (
-                <View style={styles.hazardBadge}>
-                  <Ionicons name="warning" size={12} color="#E53935" />
-                  <Text style={styles.hazardText}>Nguy hại</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* CHI TIẾT RÁC */}
-      {selectedWasteInfo && (
-        <>
-          <View style={[styles.detailCard, { borderLeftColor: selectedWasteInfo.color }]}>
-            <View style={styles.detailHeader}>
-              <Ionicons name={selectedWasteInfo.icon} size={40} color={selectedWasteInfo.color} />
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={[styles.detailTitle, { color: selectedWasteInfo.color }]}>
-                  {selectedWasteInfo.type}
+        {/* PHÂN LOẠI RÁC */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Phân loại rác thải</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.wasteTypesScroll}
+          >
+            {WASTE_TYPES.map((waste) => (
+              <TouchableOpacity
+                key={waste.type}
+                style={[
+                  styles.wasteCard,
+                  { borderColor: waste.color },
+                  selectedType === waste.type && {
+                    backgroundColor: waste.color + "15",
+                    borderWidth: 2,
+                  },
+                ]}
+                onPress={() => setSelectedType(waste.type)}
+              >
+                <Ionicons name={waste.icon} size={32} color={waste.color} />
+                <Text style={[styles.wasteCardTitle, { color: waste.color }]}>
+                  {waste.type}
                 </Text>
-                <Text style={styles.detailDesc}>{selectedWasteInfo.description}</Text>
-              </View>
-            </View>
-
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Hướng dẫn xử lý:</Text>
-              <Text style={styles.detailText}>{selectedWasteInfo.guide}</Text>
-            </View>
-
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Mẹo hữu ích:</Text>
-              {selectedWasteInfo.tips.map((tip, index) => (
-                <View key={index} style={styles.tipItem}>
-                  <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
-                  <Text style={styles.tipText}>{tip}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.badges}>
-              {selectedWasteInfo.recyclable && (
-                <View style={[styles.badge, { backgroundColor: "#4CAF50" }]}>
-                  <Ionicons name="reload" size={14} color="#fff" />
-                  <Text style={styles.badgeText}>Tái chế được</Text>
-                </View>
-              )}
-              {selectedWasteInfo.hazardous && (
-                <View style={[styles.badge, { backgroundColor: "#E53935" }]}>
-                  <Ionicons name="warning" size={14} color="#fff" />
-                  <Text style={styles.badgeText}>Nguy hại</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* ĐỊA ĐIỂM THU GOM */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Địa điểm thu gom gần nhất</Text>
-            {loadingLocations ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#2e7d32" />
-                <Text style={styles.loadingText}>Đang tìm địa điểm...</Text>
-              </View>
-            ) : nearbyLocations.length === 0 ? (
-              <View style={styles.noLocationContainer}>
-                <Ionicons name="location-outline" size={48} color="#999" />
-                <Text style={styles.noLocationText}>Không tìm thấy địa điểm</Text>
-                <Text style={styles.noLocationSubText}>
-                  Vui lòng liên hệ chính quyền địa phương
-                </Text>
-              </View>
-            ) : (
-              nearbyLocations.map((loc, index) => (
-                <View key={loc.id || index} style={styles.locationCard}>
-                  <View style={styles.locationHeader}>
-                    <Ionicons name="location" size={24} color="#2e7d32" />
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={styles.locationName}>{loc.name}</Text>
-                      <Text style={styles.locationAddress}>{loc.address}</Text>
-                      <Text style={styles.locationDistance}>
-                        Cách bạn {loc.distance} km
-                      </Text>
-                    </View>
+                <Text style={styles.wasteCardDesc}>{waste.description}</Text>
+                {waste.hazardous && (
+                  <View style={styles.hazardBadge}>
+                    <Ionicons name="warning" size={12} color="#E53935" />
+                    <Text style={styles.hazardText}>Nguy hại</Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.actionButtonFull}
-                    onPress={() => openMap(loc.lat, loc.lon, loc.name)}
-                  >
-                    <Ionicons name="navigate" size={20} color="#fff" />
-                    <Text style={styles.actionButtonText}>Chỉ đường</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            )}
-          </View>
-        </>
-      )}
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
-      {/* MẸO CUỐI – KHÔNG BỊ CHE */}
-      <View style={styles.tipsCard}>
-        <Text style={styles.tipsTitle}>Mẹo bảo vệ môi trường</Text>
-        <Text style={styles.tipsText}>
-          • Giảm thiểu đồ nhựa dùng một lần{"\n"}
-          • Mang túi vải khi đi chợ{"\n"}
-          • Tái sử dụng trước khi vứt bỏ{"\n"}
-          • Phân loại rác tại nguồn = hành động xanh!
-        </Text>
-      </View>
-    </SafeAreaScrollView>
-  </>
-);
+        {/* CHI TIẾT RÁC */}
+        {selectedWasteInfo && (
+          <>
+            <View style={[styles.detailCard, { borderLeftColor: selectedWasteInfo.color }]}>
+              <View style={styles.detailHeader}>
+                <Ionicons name={selectedWasteInfo.icon} size={40} color={selectedWasteInfo.color} />
+                <View style={{ flex: 1, marginLeft: 15 }}>
+                  <Text style={[styles.detailTitle, { color: selectedWasteInfo.color }]}>
+                    {selectedWasteInfo.type}
+                  </Text>
+                  <Text style={styles.detailDesc}>{selectedWasteInfo.description}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>Hướng dẫn xử lý:</Text>
+                <Text style={styles.detailText}>{selectedWasteInfo.guide}</Text>
+              </View>
+
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>Mẹo hữu ích:</Text>
+                {selectedWasteInfo.tips.map((tip, index) => (
+                  <View key={index} style={styles.tipItem}>
+                    <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                    <Text style={styles.tipText}>{tip}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.badges}>
+                {selectedWasteInfo.recyclable && (
+                  <View style={[styles.badge, { backgroundColor: "#4CAF50" }]}>
+                    <Ionicons name="reload" size={14} color="#fff" />
+                    <Text style={styles.badgeText}>Tái chế được</Text>
+                  </View>
+                )}
+                {selectedWasteInfo.hazardous && (
+                  <View style={[styles.badge, { backgroundColor: "#E53935" }]}>
+                    <Ionicons name="warning" size={14} color="#fff" />
+                    <Text style={styles.badgeText}>Nguy hại</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* ĐỊA ĐIỂM THU GOM */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Địa điểm thu gom gần nhất</Text>
+              {loadingLocations ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#2e7d32" />
+                  <Text style={styles.loadingText}>Đang tìm địa điểm...</Text>
+                </View>
+              ) : nearbyLocations.length === 0 ? (
+                <View style={styles.noLocationContainer}>
+                  <Ionicons name="location-outline" size={48} color="#999" />
+                  <Text style={styles.noLocationText}>Không tìm thấy địa điểm</Text>
+                  <Text style={styles.noLocationSubText}>
+                    Vui lòng liên hệ chính quyền địa phương
+                  </Text>
+                </View>
+              ) : (
+                nearbyLocations.map((loc, index) => (
+                  <View key={loc.id || index} style={styles.locationCard}>
+                    <View style={styles.locationHeader}>
+                      <Ionicons name="location" size={24} color="#2e7d32" />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={styles.locationName}>{loc.name}</Text>
+                        <Text style={styles.locationAddress}>{loc.address}</Text>
+                        <Text style={styles.locationDistance}>
+                          Cách bạn {loc.distance} km
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.actionButtonFull}
+                      onPress={() => openMap(loc.lat, loc.lon, loc.name)}
+                    >
+                      <Ionicons name="navigate" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Chỉ đường</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              )}
+            </View>
+          </>
+        )}
+
+        {/* MẸO CUỐI */}
+        <View style={styles.tipsCard}>
+          <Text style={styles.tipsTitle}>Mẹo bảo vệ môi trường</Text>
+          <Text style={styles.tipsText}>
+            • Giảm thiểu đồ nhựa dùng một lần{"\n"}
+            • Mang túi vải khi đi chợ{"\n"}
+            • Tái sử dụng trước khi vứt bỏ{"\n"}
+            • Phân loại rác tại nguồn = hành động xanh!
+          </Text>
+        </View>
+      </SafeAreaScrollView>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-    paddingTop: StatusBar.currentHeight || 40,
-  },
-  scroll: { flex: 1 },
   header: {
     backgroundColor: "#fff",
     flexDirection: "row",
@@ -761,8 +754,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#2e7d32",
-    marginBottom: 8,
+    color: "#333",
+    marginBottom: 12,
   },
   sectionDesc: {
     fontSize: 13,
@@ -772,7 +765,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f9f9f9",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -781,8 +774,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
     marginLeft: 8,
+    fontSize: 14,
     color: "#333",
   },
   searchResults: {
@@ -798,7 +791,7 @@ const styles = StyleSheet.create({
   },
   searchResultIcon: {
     fontSize: 24,
-    marginRight: 10,
+    marginRight: 12,
   },
   searchResultText: {
     flex: 1,
@@ -808,6 +801,7 @@ const styles = StyleSheet.create({
   aiButtons: {
     flexDirection: "row",
     gap: 10,
+    marginBottom: 12,
   },
   imageButton: {
     flex: 1,
@@ -827,14 +821,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   imagePreviewContainer: {
-    marginTop: 15,
     position: "relative",
+    marginTop: 12,
+    borderRadius: 12,
+    overflow: "hidden",
   },
   previewImage: {
     width: "100%",
     height: 200,
     borderRadius: 12,
-    resizeMode: "cover",
   },
   processingOverlay: {
     position: "absolute",
@@ -842,14 +837,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
   processingText: {
-    color: "#fff",
     marginTop: 10,
+    color: "#fff",
     fontSize: 14,
     fontWeight: "600",
   },
@@ -858,7 +852,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#e8f5e9",
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 8,
     marginTop: 12,
   },
   aiResultText: {
@@ -871,21 +865,23 @@ const styles = StyleSheet.create({
     color: "#2e7d32",
   },
   wasteTypesScroll: {
-    marginTop: 10,
+    marginHorizontal: -15,
+    paddingHorizontal: 15,
   },
   wasteCard: {
     width: 140,
     padding: 15,
     borderRadius: 12,
     borderWidth: 1,
-    marginRight: 10,
     backgroundColor: "#fff",
+    marginRight: 12,
     alignItems: "center",
   },
   wasteCardTitle: {
     fontSize: 14,
     fontWeight: "bold",
     marginTop: 8,
+    textAlign: "center",
   },
   wasteCardDesc: {
     fontSize: 11,
@@ -912,13 +908,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginHorizontal: 15,
     marginTop: 15,
-    padding: 20,
+    padding: 15,
     borderRadius: 12,
-    borderLeftWidth: 5,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderLeftWidth: 6,
   },
   detailHeader: {
     flexDirection: "row",
@@ -926,7 +920,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   detailTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
   },
   detailDesc: {
@@ -944,9 +938,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   detailText: {
-    fontSize: 14,
-    color: "#444",
-    lineHeight: 22,
+    fontSize: 13,
+    color: "#666",
+    lineHeight: 20,
   },
   tipItem: {
     flexDirection: "row",
@@ -954,11 +948,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   tipText: {
-    fontSize: 13,
-    color: "#555",
-    marginLeft: 8,
     flex: 1,
-    lineHeight: 20,
+    marginLeft: 8,
+    fontSize: 13,
+    color: "#666",
   },
   badges: {
     flexDirection: "row",
@@ -973,75 +966,65 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
     marginLeft: 4,
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "600",
   },
   loadingContainer: {
-    padding: 30,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
   },
   loadingText: {
-    marginTop: 10,
+    marginLeft: 10,
     fontSize: 14,
     color: "#666",
   },
   noLocationContainer: {
-    padding: 30,
     alignItems: "center",
+    padding: 30,
   },
   noLocationText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
     color: "#666",
-    marginTop: 15,
-    textAlign: "center",
+    marginTop: 10,
   },
   noLocationSubText: {
     fontSize: 13,
     color: "#999",
-    marginTop: 8,
-    textAlign: "center",
-    lineHeight: 20,
+    marginTop: 5,
   },
   locationCard: {
     backgroundColor: "#f9f9f9",
     padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    borderRadius: 12,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: "#e0e0e0",
   },
   locationHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
+    marginBottom: 12,
   },
   locationName: {
-    fontSize: 14,
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "600",
     color: "#333",
   },
   locationAddress: {
     fontSize: 12,
     color: "#666",
-    marginTop: 4,
+    marginTop: 3,
   },
   locationDistance: {
     fontSize: 12,
     color: "#2e7d32",
-    marginTop: 4,
-    marginBottom: 8,
     fontWeight: "600",
-  },
-  locationPhone: {
-    fontSize: 12,
-    color: "#2e7d32",
-    marginTop: 2,
-    textDecorationLine: "underline",
-  },
-  locationActions: {
-    marginTop: 12,
+    marginTop: 3,
   },
   actionButtonFull: {
     flexDirection: "row",
@@ -1052,29 +1035,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   actionButtonText: {
-    marginLeft: 8,
+    marginLeft: 6,
     color: "#fff",
-    fontSize: 14,
     fontWeight: "600",
+    fontSize: 14,
   },
   tipsCard: {
-    backgroundColor: "#e8f5e9",
+    backgroundColor: "#fff3e0",
     marginHorizontal: 15,
     marginTop: 15,
+    marginBottom: 30,
     padding: 20,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#c8e6c9",
+    borderColor: "#ffe0b2",
   },
   tipsTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#2e7d32",
+    color: "#E65100",
     marginBottom: 10,
   },
   tipsText: {
     fontSize: 13,
-    color: "#1b5e20",
+    color: "#BF360C",
     lineHeight: 22,
   },
 });
