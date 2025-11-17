@@ -14,8 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { UserContext } from "../context/UserContext";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 export default function GamificationScreen({ navigation }) {
+  const insets = useSafeAreaInsets(); // ✅ THÊM hook này
   const { userProfile = {}, updateUserProfile } = useContext(UserContext) || {};
   const [selectedReward, setSelectedReward] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -25,89 +27,89 @@ export default function GamificationScreen({ navigation }) {
   const userReports = Number(userProfile?.reportHistory?.length || 0);
   const userWasteClassified = Number(userProfile?.wasteClassified || 0);
   const userCampaigns = Number(userProfile?.campaignsJoined || 0);
-  
+
   const userLevel = Math.floor(userPoints / 100) + 1;
   const progress = (userPoints % 100);
 
   // ✅ HUY HIỆU VỚI ĐIỀU KIỆN THỰC
   const badges = [
-    { 
-      id: 1, 
-      name: "Người xanh", 
-      icon: "leaf", 
-      color: "#4CAF50", 
-      requirement: 50, 
-      earned: userPoints >= 50, 
+    {
+      id: 1,
+      name: "Người xanh",
+      icon: "leaf",
+      color: "#4CAF50",
+      requirement: 50,
+      earned: userPoints >= 50,
       description: "Đạt 50 điểm",
       type: "points"
     },
-    { 
-      id: 2, 
-      name: "Chiến binh môi trường", 
-      icon: "shield-checkmark", 
-      color: "#2196F3", 
-      requirement: 200, 
-      earned: userPoints >= 200, 
+    {
+      id: 2,
+      name: "Chiến binh môi trường",
+      icon: "shield-checkmark",
+      color: "#2196F3",
+      requirement: 200,
+      earned: userPoints >= 200,
       description: "Đạt 200 điểm",
       type: "points"
     },
-    { 
-      id: 3, 
-      name: "Thành phố sạch", 
-      icon: "trophy", 
-      color: "#FF9800", 
-      requirement: 500, 
-      earned: userPoints >= 500, 
+    {
+      id: 3,
+      name: "Thành phố sạch",
+      icon: "trophy",
+      color: "#FF9800",
+      requirement: 500,
+      earned: userPoints >= 500,
       description: "Đạt 500 điểm",
       type: "points"
     },
-    { 
-      id: 4, 
-      name: "Người báo cáo", 
-      icon: "megaphone", 
-      color: "#9C27B0", 
-      requirement: 10, 
-      earned: userReports >= 10, 
+    {
+      id: 4,
+      name: "Người báo cáo",
+      icon: "megaphone",
+      color: "#9C27B0",
+      requirement: 10,
+      earned: userReports >= 10,
       description: "Báo cáo 10 vi phạm",
       type: "reports"
     },
-    { 
-      id: 5, 
-      name: "Thợ phân loại", 
-      icon: "git-branch", 
-      color: "#00BCD4", 
-      requirement: 20, 
-      earned: userWasteClassified >= 20, 
+    {
+      id: 5,
+      name: "Thợ phân loại",
+      icon: "git-branch",
+      color: "#00BCD4",
+      requirement: 20,
+      earned: userWasteClassified >= 20,
       description: "Phân loại 20 lần bằng AI",
       type: "classification"
     },
-    { 
-      id: 6, 
-      name: "Người dẫn đầu", 
-      icon: "rocket", 
-      color: "#F44336", 
-      requirement: 1000, 
-      earned: userPoints >= 1000, 
+    {
+      id: 6,
+      name: "Người dẫn đầu",
+      icon: "rocket",
+      color: "#F44336",
+      requirement: 1000,
+      earned: userPoints >= 1000,
       description: "Đạt 1000 điểm",
       type: "points"
     },
-    { 
-      id: 7, 
-      name: "Nhà hoạt động", 
-      icon: "people", 
-      color: "#E91E63", 
-      requirement: 5, 
-      earned: userCampaigns >= 5, 
+    {
+      id: 7,
+      name: "Nhà hoạt động",
+      icon: "people",
+      color: "#E91E63",
+      requirement: 5,
+      earned: userCampaigns >= 5,
       description: "Tham gia 5 chiến dịch",
       type: "campaigns"
     },
-    { 
-      id: 8, 
-      name: "Siêu sao xanh", 
-      icon: "star", 
-      color: "#FFD700", 
-      requirement: 2000, 
-      earned: userPoints >= 2000, 
+    {
+      id: 8,
+      name: "Siêu sao xanh",
+      icon: "star",
+      color: "#FFD700",
+      requirement: 2000,
+      earned: userPoints >= 2000,
       description: "Đạt 2000 điểm",
       type: "points"
     },
@@ -115,59 +117,59 @@ export default function GamificationScreen({ navigation }) {
 
   // ✅ QUÀ TẶNG - CHỈ ĐỔI ĐƯỢC KHI ĐỦ ĐIỂM
   const rewards = [
-    { 
-      id: 1, 
-      name: "Voucher 50K", 
-      icon: "gift", 
-      points: 100, 
-      color: "#E91E63", 
-      description: "Phiếu giảm giá 50.000đ", 
-      stock: 10 
+    {
+      id: 1,
+      name: "Voucher 50K",
+      icon: "gift",
+      points: 100,
+      color: "#E91E63",
+      description: "Phiếu giảm giá 50.000đ",
+      stock: 10
     },
-    { 
-      id: 2, 
-      name: "Cây xanh", 
-      icon: "flower", 
-      points: 150, 
-      color: "#4CAF50", 
-      description: "1 cây xanh giống bản địa", 
-      stock: 5 
+    {
+      id: 2,
+      name: "Cây xanh",
+      icon: "flower",
+      points: 150,
+      color: "#4CAF50",
+      description: "1 cây xanh giống bản địa",
+      stock: 5
     },
-    { 
-      id: 3, 
-      name: "Túi vải canvas", 
-      icon: "bag-handle", 
-      points: 80, 
-      color: "#FF9800", 
-      description: "Túi vải thân thiện môi trường", 
-      stock: 15 
+    {
+      id: 3,
+      name: "Túi vải canvas",
+      icon: "bag-handle",
+      points: 80,
+      color: "#FF9800",
+      description: "Túi vải thân thiện môi trường",
+      stock: 15
     },
-    { 
-      id: 4, 
-      name: "Bình nước inox", 
-      icon: "water", 
-      points: 200, 
-      color: "#2196F3", 
-      description: "Bình giữ nhiệt 500ml", 
-      stock: 8 
+    {
+      id: 4,
+      name: "Bình nước inox",
+      icon: "water",
+      points: 200,
+      color: "#2196F3",
+      description: "Bình giữ nhiệt 500ml",
+      stock: 8
     },
-    { 
-      id: 5, 
-      name: "Sách môi trường", 
-      icon: "book", 
-      points: 120, 
-      color: "#9C27B0", 
-      description: "Sách kiến thức bảo vệ môi trường", 
-      stock: 12 
+    {
+      id: 5,
+      name: "Sách môi trường",
+      icon: "book",
+      points: 120,
+      color: "#9C27B0",
+      description: "Sách kiến thức bảo vệ môi trường",
+      stock: 12
     },
-    { 
-      id: 6, 
-      name: "Vé workshop", 
-      icon: "calendar", 
-      points: 250, 
-      color: "#FF5722", 
-      description: "Vé tham dự workshop môi trường", 
-      stock: 6 
+    {
+      id: 6,
+      name: "Vé workshop",
+      icon: "calendar",
+      points: 250,
+      color: "#FF5722",
+      description: "Vé tham dự workshop môi trường",
+      stock: 6
     },
   ];
 
@@ -185,11 +187,11 @@ export default function GamificationScreen({ navigation }) {
 
   const confirmRedeem = async () => {
     setModalVisible(false);
-    
+
     // ✅ TRỪ ĐIỂM KHI ĐỔI QUÀ
     const newPoints = userPoints - selectedReward.points;
     await updateUserProfile({ points: newPoints });
-    
+
     Alert.alert(
       "Đổi quà thành công! 🎉",
       `Bạn đã đổi ${selectedReward.name}. Còn lại ${newPoints} điểm.`,
@@ -205,7 +207,7 @@ export default function GamificationScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#222" />
         </TouchableOpacity>
@@ -349,10 +351,10 @@ export default function GamificationScreen({ navigation }) {
       </SafeAreaScrollView>
 
       {/* Modal xác nhận */}
-      <Modal 
-        animationType="fade" 
-        transparent={true} 
-        visible={modalVisible} 
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
@@ -369,8 +371,8 @@ export default function GamificationScreen({ navigation }) {
               Sau khi đổi, bạn còn lại {userPoints - (selectedReward?.points || 0)} điểm.
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
-                style={styles.modalBtnCancel} 
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
                 onPress={() => setModalVisible(false)}
               >
                 <Text style={styles.modalBtnTextCancel}>Hủy</Text>
@@ -391,7 +393,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 50,
+    // paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: "#f8f9fa",

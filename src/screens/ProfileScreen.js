@@ -332,40 +332,6 @@ export default function ProfileScreen({ navigation }) {
         )}
       </View>
 
-      {/* ✅ THỐNG KÊ HOẠT ĐỘNG - GIỮ NGUYÊN GAMIFICATION */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Hoạt động & Thành tích</Text>
-        <View style={styles.statsContainer}>
-          <StatCard
-            icon="trophy"
-            count={userProfile.points || 0}
-            label="Điểm"
-            color="#FF9800"
-          />
-          <StatCard
-            icon="document-text-outline"
-            count={reportHistory.length}
-            label="Báo cáo"
-            color="#2e7d32"
-          />
-        </View>
-
-        <View style={styles.statsContainer}>
-          <StatCard
-            icon="people"
-            count={userProfile.campaignsJoined || 0}
-            label="Chiến dịch"
-            color="#1976d2"
-          />
-          <StatCard
-            icon="leaf"
-            count={userProfile.wasteClassified || 0}
-            label="Phân loại rác"
-            color="#43A047"
-          />
-        </View>
-      </View>
-
       {/* ✅ QUYỀN RIÊNG TƯ & BẢO MẬT */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>

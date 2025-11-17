@@ -17,6 +17,7 @@ import { UserContext } from "../context/UserContext";
 import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -27,6 +28,7 @@ Notifications.setNotificationHandler({
 });
 
 export default function NotificationsScreen({ navigation }) {
+  const insets = useSafeAreaInsets(); // ✅ THÊM hook này
   const { user, guestMode } = useContext(AuthContext);
   const { userProfile, incrementCampaignsJoined } = useContext(UserContext);
 
@@ -231,7 +233,7 @@ export default function NotificationsScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#222" />
         </TouchableOpacity>
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 50,
+    // paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: "#f8f9fa",

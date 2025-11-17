@@ -14,6 +14,7 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 import * as ImagePicker from "expo-image-picker";
 import { UserContext } from "../context/UserContext";
 import { AuthContext } from "../context/AuthContext";
@@ -33,6 +34,7 @@ const REGIONS = [
 ];
 
 export default function EditProfileScreen({ navigation }) {
+  const insets = useSafeAreaInsets(); // ✅ THÊM hook này
   const { userProfile, updateUserProfile, uploadToCloudinary } = useContext(UserContext);
   const { guestMode } = useContext(AuthContext);
 
@@ -55,7 +57,6 @@ export default function EditProfileScreen({ navigation }) {
     setPhotoURL(userProfile?.photoURL || "");
   }, [userProfile]);
 
-  // Chọn ảnh + upload lên Cloudinary
   const pickImage = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -158,8 +159,8 @@ export default function EditProfileScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
 
-      {/* HEADER ĐỒNG BỘ 100% */}
-      <View style={styles.header}>
+      {/* ✅ HEADER - Dùng dynamic paddingTop */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#222" />
         </TouchableOpacity>
@@ -297,18 +298,18 @@ const Input = ({ label, ...props }) => (
   </View>
 );
 
-/* STYLES - ĐÃ ĐỒNG BỘ HEADER */
+/* STYLES */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
   },
 
-  // HEADER ĐỒNG BỘ
+  // ✅ HEADER - BỎ paddingTop cứng
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 50,
+    // ❌ REMOVED: paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: "#f8f9fa",

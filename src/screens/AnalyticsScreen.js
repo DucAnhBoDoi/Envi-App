@@ -18,6 +18,7 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { UserContext } from "../context/UserContext";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -32,7 +33,7 @@ export default function AnalyticsScreen({ navigation }) {
     loadAllReports,
     migrateReportsToFirestore,
   } = useContext(UserContext) || {};
-
+  const insets = useSafeAreaInsets(); // ✅ THÊM hook này
   const [selectedPeriod, setSelectedPeriod] = useState("week");
   const [refreshing, setRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -191,25 +192,25 @@ export default function AnalyticsScreen({ navigation }) {
   // GENERATE HTML CHO PDF
   const generatePDFHTML = () => {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('vi-VN', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const dateStr = now.toLocaleDateString('vi-VN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
     const timeStr = now.toLocaleTimeString('vi-VN');
 
     const { personalStats, communityStats, chartData, wasteData, violationTypeData } = analyticsData;
     const periodText = selectedPeriod === "week" ? "tuần" : selectedPeriod === "month" ? "tháng" : "năm";
 
-    const chartRows = chartData.labels.map((label, i) => 
+    const chartRows = chartData.labels.map((label, i) =>
       `<tr><td style="padding:8px;border:1px solid #ddd;">${label}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;">${chartData.dataPoints[i]}</td></tr>`
     ).join('');
 
-    const wasteRows = wasteData.filter(w => w.count > 0).map(w => 
+    const wasteRows = wasteData.filter(w => w.count > 0).map(w =>
       `<tr><td style="padding:8px;border:1px solid #ddd;">${w.name}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;">${w.count}</td></tr>`
     ).join('');
 
-    const violationRows = violationTypeData.map(v => 
+    const violationRows = violationTypeData.map(v =>
       `<tr><td style="padding:8px;border:1px solid #ddd;">${v.fullName}</td><td style="padding:8px;border:1px solid #ddd;text-align:center;">${v.population}</td></tr>`
     ).join('');
 
@@ -338,13 +339,13 @@ export default function AnalyticsScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#222" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Phân tích & Báo cáo</Text>
-        <TouchableOpacity 
-          style={[styles.exportButton, isExporting && styles.exportButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.exportButton, isExporting && styles.exportButtonDisabled]}
           onPress={handleExportPDF}
           disabled={isExporting}
         >
@@ -521,7 +522,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 50,
+    // paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: "#f8f9fa",

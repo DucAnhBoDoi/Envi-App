@@ -14,10 +14,12 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 const OPENWEATHER_API_KEY = "2a110f99ddf042dfdbd222451ed81f20";
 
 export default function MapScreen({ navigation }) {
+  const insets = useSafeAreaInsets(); // ✅ THÊM hook này
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -414,7 +416,7 @@ export default function MapScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
 
       {/* HEADER */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -772,7 +774,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: 50,
+    // paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: "#f8f9fa",

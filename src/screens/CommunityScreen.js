@@ -24,7 +24,7 @@ import { UserContext } from "../context/UserContext";
 import * as ImagePicker from "expo-image-picker";
 import { Video } from "expo-av";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 export default function CommunityScreen({ navigation }) {
   const {
@@ -45,6 +45,7 @@ export default function CommunityScreen({ navigation }) {
     userProfile,
     loading,
   } = useContext(UserContext);
+  const insets = useSafeAreaInsets(); // ✅ THÊM hook này
 
   // ✅ Thêm state để quản lý communityPosts local
   const [localPosts, setLocalPosts] = useState([]);
@@ -784,7 +785,7 @@ export default function CommunityScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
 
       {/* === HEADER ĐỒNG BỘ 100% === */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#222" />
         </TouchableOpacity>
@@ -1285,7 +1286,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 50,
+    // paddingTop: 50,
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: "#f8f9fa",

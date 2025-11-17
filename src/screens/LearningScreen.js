@@ -16,8 +16,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Audio } from "expo-av";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
 import { AuthContext } from "../context/AuthContext"; // THÊM DÒNG NÀY
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 export default function LearningScreen({ navigation }) {
+    const insets = useSafeAreaInsets(); // ✅ THÊM hook này
     const { guestMode } = useContext(AuthContext);
     const [activeTab, setActiveTab] = useState("library");
     const [showQuiz, setShowQuiz] = useState(false);
@@ -865,7 +867,7 @@ export default function LearningScreen({ navigation }) {
             <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
 
             {/* === HEADER ĐỒNG BỘ 100% === */}
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
                     <Ionicons name="arrow-back" size={24} color="#222" />
                 </TouchableOpacity>
@@ -1023,7 +1025,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
-        paddingTop: 50,
+        // paddingTop: 50,
         paddingHorizontal: 16,
         paddingBottom: 16,
         backgroundColor: "#f8f9fa",
