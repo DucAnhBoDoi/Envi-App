@@ -9,7 +9,10 @@ export default function SafeAreaScrollView({ children, style, ...props }) {
   return (
     <ScrollView
       style={[styles.container, style]}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 80 }} // 80 = chiều cao tab
+      contentContainerStyle={{ 
+        paddingTop: insets.top, // ✅ Thêm padding top
+        paddingBottom: insets.bottom + 80 
+      }}
       showsVerticalScrollIndicator={false}
       {...props}
     >

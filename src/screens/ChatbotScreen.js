@@ -203,7 +203,7 @@ Trả lời bằng tiếng Việt, thân thiện, ngắn gọn (2–3 câu), d�
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
-      {/* 🌿 Header */}
+      {/* 🌿 Header - Đã bỏ marginTop thừa */}
       <View style={styles.header}>
         <Ionicons name="logo-snapchat" size={30} color="#2e7d32" />
         <Text style={styles.headerText}>Trợ lý Môi Trường AI</Text>
@@ -263,7 +263,7 @@ Trả lời bằng tiếng Việt, thân thiện, ngắn gọn (2–3 câu), d�
       >
         <View style={[
           styles.inputContainer,
-          { marginBottom: keyboardHeight > 0 ? keyboardHeight -230 : tabBarHeight }
+          { marginBottom: keyboardHeight > 0 ? keyboardHeight - 230 : tabBarHeight }
         ]}>
           <View style={styles.inputRow}>
             <TouchableOpacity
@@ -307,7 +307,6 @@ Trả lời bằng tiếng Việt, thân thiện, ngắn gọn (2–3 câu), d�
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
   header: {
-    marginTop: StatusBar.currentHeight || 35,
     backgroundColor: "#fff",
     flexDirection: "row",
     alignItems: "center",

@@ -10,10 +10,12 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import ImageViewing from "react-native-image-viewing";
 import { UserContext } from "../context/UserContext";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 const STATUS_INFO = {
   pending: {
@@ -36,36 +38,33 @@ const STATUS_INFO = {
   },
 };
 
-export default function ReportHistoryScreen() {
-  const { reportHistory, updateReportStatus } = useContext(UserContext);
+export default function ReportHistoryScreen({ navigation }) {
+  const insets = useSafeAreaInsets(); // ✅ THÊM hook này
+  // ĐẢM BẢO reportHistory LUÔN LÀ MẢNG
+  const { reportHistory = [], updateReportStatus } = useContext(UserContext);
   const [refreshing, setRefreshing] = useState(false);
 
-  // 📸 state cho ImageViewing
+  // Image viewer state
   const [visible, setVisible] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageList, setImageList] = useState([]);
 
-  // 🔁 Tự động cập nhật trạng thái mỗi 10 giây
+  // Tự động chuyển trạng thái mỗi 10s
   useEffect(() => {
     const interval = setInterval(() => {
-      if (!reportHistory || reportHistory.length === 0) return;
+      if (reportHistory.length === 0) return;
 
       reportHistory.forEach((report) => {
         const currentStatus = report.status || "pending";
-        let nextStatus = currentStatus;
-
-        if (currentStatus === "pending") nextStatus = "processing";
-        else if (currentStatus === "processing") nextStatus = "completed";
-        else if (currentStatus === "completed") return; // không đổi nữa
-
-        updateReportStatus(report.id, nextStatus);
+        if (currentStatus === "pending") updateReportStatus(report.id, "processing");
+        else if (currentStatus === "processing") updateReportStatus(report.id, "completed");
       });
-    }, 10000); // 10 giây
+    }, 10000);
 
     return () => clearInterval(interval);
-  }, [reportHistory]);
+  }, [reportHistory, updateReportStatus]);
 
-  const onRefresh = async () => {
+  const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 800);
   };
@@ -80,7 +79,7 @@ export default function ReportHistoryScreen() {
         onPress={() =>
           Alert.alert(
             item.category,
-            `Trạng thái: ${status.label}\n\nMô tả: ${item.description}\n\nVị trí: ${item.location}`
+            `Trạng thái: ${status.label}\n\nMô tả: ${item.description || "Không có"}\n\nVị trí: ${item.location || "Không có"}`
           )
         }
       >
@@ -125,17 +124,14 @@ export default function ReportHistoryScreen() {
           </Text>
         )}
 
-        {/* 📸 Hình ảnh */}
+        {/* Hình ảnh */}
         {item.images && item.images.length > 0 && (
           <>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.imagesContainer}
-              contentContainerStyle={{
-                flexDirection: "row",
-                alignItems: "center",
-              }}
+              contentContainerStyle={{ flexDirection: "row", alignItems: "center" }}
             >
               {item.images.map((uri, i) => (
                 <TouchableOpacity
@@ -156,8 +152,8 @@ export default function ReportHistoryScreen() {
               imageIndex={currentIndex}
               visible={visible}
               onRequestClose={() => setVisible(false)}
-              swipeToCloseEnabled={true}
-              doubleTapToZoomEnabled={true}
+              swipeToCloseEnabled
+              doubleTapToZoomEnabled
               FooterComponent={({ imageIndex }) => (
                 <View style={styles.footer}>
                   <Text style={styles.footerText}>
@@ -199,52 +195,93 @@ export default function ReportHistoryScreen() {
     );
   };
 
-  if (!reportHistory || reportHistory.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="document-text-outline" size={80} color="#ccc" />
-        <Text style={styles.emptyText}>Chưa có báo cáo nào</Text>
-        <Text style={styles.emptySubtext}>
-          Báo cáo của bạn sẽ được lưu tại đây
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
-      <FlatList
-        data={reportHistory}
-        keyExtractor={(item) => item.id}
-        renderItem={renderReportItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={["#2e7d32"]}
-          />
-        }
-      />
+      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+
+      {/* HEADER - HIỆN 100% */}
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#222" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Lịch sử báo cáo</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* NỘI DUNG - ĐÃ SỬA LỖI */}
+      {reportHistory.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="document-text-outline" size={80} color="#ccc" />
+          <Text style={styles.emptyText}>Chưa có báo cáo nào</Text>
+          <Text style={styles.emptySubtext}>
+            Báo cáo của bạn sẽ được lưu tại đây
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={reportHistory}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderReportItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#2e7d32"]}
+            />
+          }
+        />
+      )}
     </View>
   );
 }
 
+// STYLES - SẠCH, KHÔNG LẶP
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1, backgroundColor: "#f8f9fa" },
+
+  // HEADER
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    // paddingTop: 50,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: "#f8f9fa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#222",
+    marginLeft: 12,
+  },
+
+  // LIST
   listContent: { padding: 15, paddingBottom: 100 },
 
+  // EMPTY
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fa",
     padding: 20,
   },
   emptyText: { fontSize: 18, fontWeight: "600", color: "#666", marginTop: 20 },
   emptySubtext: { fontSize: 14, color: "#999", marginTop: 8, textAlign: "center" },
 
+  // CARD
   reportCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
@@ -268,7 +305,6 @@ const styles = StyleSheet.create({
   reportHeaderText: { flex: 1, marginLeft: 12 },
   reportTitle: { fontSize: 16, fontWeight: "bold", color: "#333" },
   reportDate: { fontSize: 12, color: "#999" },
-
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -278,25 +314,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusText: { fontSize: 11, fontWeight: "600", marginLeft: 4 },
-
-  reportDescription: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
-    marginBottom: 12,
-  },
+  reportDescription: { fontSize: 14, color: "#666", lineHeight: 20, marginBottom: 12 },
   reportDetail: { flexDirection: "row", alignItems: "center", gap: 6 },
   reportDetailText: { fontSize: 13, color: "#666", flex: 1 },
-
   imagesContainer: { marginBottom: 12 },
-  thumbnail: {
-    width: 90,
-    height: 90,
-    borderRadius: 8,
-    marginRight: 8,
-    resizeMode: "cover",
-  },
-
+  thumbnail: { width: 90, height: 90, borderRadius: 8, marginRight: 8, resizeMode: "cover" },
   footer: {
     position: "absolute",
     bottom: 40,
@@ -307,7 +329,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   footerText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-
   processingInfo: {
     flexDirection: "row",
     alignItems: "center",
@@ -327,4 +348,3 @@ const styles = StyleSheet.create({
   },
   completedText: { fontSize: 12, color: "#388E3C", marginLeft: 8 },
 });
-
