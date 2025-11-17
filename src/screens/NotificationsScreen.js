@@ -144,8 +144,8 @@ export default function NotificationsScreen({ navigation }) {
   const generateStaticNotifications = async () => {
     const now = Date.now();
     const staticNotifs = [
-      { id: (now - 4*60*60*1000).toString(), type: "weather", icon: "warning", color: "#FFA726", title: "Cảnh báo: AQI cao", message: "Hạn chế ra ngoài từ 14:00 - 18:00.", read: false },
-      { id: (now - 6*60*60*1000).toString(), type: "community", icon: "people", color: "#9C27B0", title: "Nhóm Xanh Sài Gòn", message: "Lan Anh: Ai muốn dọn rác kênh Nhiêu Lộc?", read: true },
+      { id: (now - 4 * 60 * 60 * 1000).toString(), type: "weather", icon: "warning", color: "#FFA726", title: "Cảnh báo: AQI cao", message: "Hạn chế ra ngoài từ 14:00 - 18:00.", read: false },
+      { id: (now - 6 * 60 * 60 * 1000).toString(), type: "community", icon: "people", color: "#9C27B0", title: "Nhóm Xanh Sài Gòn", message: "Lan Anh: Ai muốn dọn rác kênh Nhiêu Lộc?", read: true },
     ];
     setNotifications(staticNotifs);
     await saveNotifications(staticNotifs);
@@ -177,17 +177,17 @@ export default function NotificationsScreen({ navigation }) {
   // ✅ FIX: Khi xem thông báo chiến dịch (chưa đọc) → Tăng chiến dịch + cộng điểm
   const markAsRead = async (id) => {
     const notif = notifications.find(n => n.id === id);
-    
+
     // Nếu là chiến dịch và chưa đọc → Tính là tham gia
     if (notif && !notif.read && notif.type === "campaign") {
       await incrementCampaignsJoined();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        "Tham gia thành công! 🎉", 
+        "Tham gia thành công! 🎉",
         "Bạn đã xem và tham gia chiến dịch này. Nhận +10 điểm!"
       );
     }
-    
+
     // Đánh dấu đã đọc
     updateNotification(id, { read: true });
   };
@@ -201,10 +201,12 @@ export default function NotificationsScreen({ navigation }) {
   const clearAll = async () => {
     Alert.alert("Xóa tất cả", "Chắc chắn xóa toàn bộ?", [
       { text: "Hủy", style: "cancel" },
-      { text: "Xóa hết", style: "destructive", onPress: async () => {
-        setNotifications([]);
-        await saveNotifications([]);
-      }},
+      {
+        text: "Xóa hết", style: "destructive", onPress: async () => {
+          setNotifications([]);
+          await saveNotifications([]);
+        }
+      },
     ]);
   };
 
@@ -282,13 +284,13 @@ export default function NotificationsScreen({ navigation }) {
             <TouchableOpacity key={c.id} style={styles.campaignCard} onPress={() =>
               Alert.alert(c.title, `${c.date} • ${c.location}\n\nNhận thông báo chiến dịch này?`, [
                 { text: "Để sau", style: "cancel" },
-                { 
-                  text: "Nhận thông báo", 
+                {
+                  text: "Nhận thông báo",
                   onPress: () => {
-                    sendNotification(c.title, `${c.date} tại ${c.location}`, { 
-                      type: "campaign", 
-                      icon: c.icon, 
-                      color: c.color 
+                    sendNotification(c.title, `${c.date} tại ${c.location}`, {
+                      type: "campaign",
+                      icon: c.icon,
+                      color: c.color
                     });
                   }
                 },

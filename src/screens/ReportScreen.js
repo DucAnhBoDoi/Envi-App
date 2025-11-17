@@ -1,4 +1,4 @@
-// src/screens/ReportScreen.js
+// src/screens/ReportScreen.js - MERGED VERSION WITH ALL FEATURES
 import React, { useState, useEffect, useContext } from "react";
 import {
   View,
@@ -18,10 +18,9 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 import { UserContext } from "../context/UserContext";
-import SafeAreaScrollView from "../components/SafeAreaScrollView";
 import { PermissionsContext } from "../context/PermissionsContext";
+import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
-// Danh mục vi phạm
 const VIOLATION_CATEGORIES = [
   {
     id: "1",
@@ -63,6 +62,7 @@ const VIOLATION_CATEGORIES = [
 
 export default function ReportScreen({ navigation }) {
   const { addReportToHistory } = useContext(UserContext);
+  const { permissions, toggleLocationPermission, checkSystemPermissions } = useContext(PermissionsContext);
 
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [description, setDescription] = useState("");
@@ -73,7 +73,6 @@ export default function ReportScreen({ navigation }) {
   const [showMap, setShowMap] = useState(false);
   const [mapRegion, setMapRegion] = useState(null);
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
-  const { permissions, toggleLocationPermission, checkSystemPermissions } = useContext(PermissionsContext);
 
   useEffect(() => {
     getCurrentLocation();
@@ -312,7 +311,6 @@ export default function ReportScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
       {showMap ? (
-        /* ==================== BẢN ĐỒ TOÀN MÀN HÌNH ==================== */
         <View style={styles.mapContainer}>
           <MapView
             style={StyleSheet.absoluteFillObject}
@@ -338,9 +336,8 @@ export default function ReportScreen({ navigation }) {
           </View>
         </View>
       ) : (
-        /* ==================== FORM BÁO CÁO – CUỘN ĐẸP ==================== */
         <SafeAreaScrollView showsVerticalScrollIndicator={false}>
-          {/* HEADER – CHUẨN 56PX */}
+          {/* HEADER */}
           <View style={styles.header}>
             <Ionicons name="alert-circle" size={32} color="#E53935" />
             <Text style={styles.headerText}>Báo cáo vi phạm môi trường</Text>
@@ -520,10 +517,9 @@ export default function ReportScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* KHOẢNG CÁCH ĐẸP GIỮA LƯU Ý VÀ NÚT GỬI */}
           <View style={{ height: 10 }} />
 
-          {/* NÚT GỬI BÁO CÁO – CUỘN THEO, ĐẸP RIÊNG, KHÔNG DÍNH LƯU Ý */}
+          {/* NÚT GỬI BÁO CÁO */}
           <View style={styles.submitWrapper}>
             <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
               <Ionicons name="send" size={20} color="#fff" />
@@ -531,7 +527,6 @@ export default function ReportScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* ĐỆM CUỐI ĐỂ KHÔNG BỊ CHE TAB BAR */}
           <View style={{ height: 10 }} />
         </SafeAreaScrollView>
       )}

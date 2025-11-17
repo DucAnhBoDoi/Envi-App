@@ -15,9 +15,9 @@ import { UserContext } from "../context/UserContext";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
 
 export default function HomeScreen({ navigation }) {
-  const { 
-    communityPosts = [], 
-    communityGroups = [], 
+  const {
+    communityPosts = [],
+    communityGroups = [],
     userProfile = {},
     reportHistory = [],
   } = useContext(UserContext) || {};
@@ -140,7 +140,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.tipContent}>
             <Text style={styles.tipTitle}>Mẹo hôm nay</Text>
             <Text style={styles.tipText}>
-              Hãy mang túi vải khi đi chợ để giảm thiểu rác thải nhựa! 
+              Hãy mang túi vải khi đi chợ để giảm thiểu rác thải nhựa!
               Mỗi hành động nhỏ đều tạo nên sự khác biệt lớn.
             </Text>
           </View>
@@ -177,7 +177,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.pointsItemText}>Đăng bài: +8 điểm, Bình luận: +3 điểm</Text>
             </View>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.pointsButton}
             onPress={() => navigation.navigate("Gamification")}
           >

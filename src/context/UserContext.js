@@ -1,4 +1,4 @@
-// src/context/UserContext.js 
+// src/context/UserContext.js - MERGED VERSION WITH ALL FEATURES
 
 import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -29,6 +29,11 @@ export const UserContext = createContext();
 export const UserProvider = ({ children }) => {
   const { user, guestMode } = useContext(AuthContext);
 
+  // ==================== CLOUDINARY CONFIG ====================
+  // 🔥 FREE 25GB/month - Không cần API key
+  const CLOUDINARY_CLOUD_NAME = "dlydwc9t3"; // ⚠️ THAY BẰNG CLOUD NAME CỦA BẠN
+  const CLOUDINARY_UPLOAD_PRESET = "green_hanoi"; // Tạo unsigned preset
+
   // ==================== STATE ====================
   const [userProfile, setUserProfile] = useState({
     displayName: "",
@@ -53,10 +58,13 @@ export const UserProvider = ({ children }) => {
   const [communityGroups, setCommunityGroups] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
 
-  /**
-   * uploadToCloudinary - UPLOAD MIỄN PHÍ
-   * Không cần API key, hoàn toàn free trong giới hạn 25GB/tháng
-   */
+  // ✅ TỔNG BÁO CÁO CỦA TẤT CẢ USER
+  const [allReports, setAllReports] = useState([]);
+
+  // ✅ AI PHÂN LOẠI RÁC
+  const [wasteClassificationHistory, setWasteClassificationHistory] = useState([]);
+
+  // ==================== UPLOAD CLOUDINARY ====================
   const uploadToCloudinary = async (uri, resourceType = "image") => {
     if (!uri) throw new Error("URI không hợp lệ");
     if (typeof uri === "string" && uri.includes("cloudinary.com")) {
@@ -106,7 +114,7 @@ export const UserProvider = ({ children }) => {
       }
 
       const data = await response.json();
-      console.log("Upload thành công:", data.secure_url.substring(0, 50));
+      console.log("✅ Upload thành công:", data.secure_url.substring(0, 50));
 
       return data.secure_url;
 
@@ -240,13 +248,11 @@ export const UserProvider = ({ children }) => {
 
       const ref = doc(db, "users", user.uid);
 
-      // Firestore auto-increment
       await updateDoc(ref, {
         campaignsJoined: increment(1),
         points: increment(10),
       });
 
-      // cập nhật state ngay
       const refreshed = {
         ...userProfile,
         campaignsJoined: userProfile.campaignsJoined + 1,
@@ -261,7 +267,6 @@ export const UserProvider = ({ children }) => {
       return { success: false };
     }
   };
-
 
   // ==================== AI PHÂN LOẠI RÁC ====================
   const loadWasteClassificationHistory = async () => {
@@ -335,10 +340,9 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // ✅ LOAD TẤT CẢ BÁO CÁO TỪ FIRESTORE - QUAN TRỌNG!
+  // ✅ LOAD TẤT CẢ BÁO CÁO TỪ FIRESTORE
   const loadAllReports = useCallback(async () => {
     if (guestMode) {
-      // ✅ Nếu là guest mode, chỉ hiển thị báo cáo local của guest
       try {
         const key = "guestReportHistory";
         const history = await AsyncStorage.getItem(key);
@@ -349,9 +353,9 @@ export const UserProvider = ({ children }) => {
       }
       return;
     }
-    
+
     try {
-      console.log("🔄 Đang load tất cả báo cáo từ Firestore...");
+      console.log("📄 Đang load tất cả báo cáo từ Firestore...");
       const snap = await getDocs(collection(db, "reports"));
       const reports = snap.docs.map((d) => {
         const data = d.data();
@@ -382,14 +386,13 @@ export const UserProvider = ({ children }) => {
       const key = guestMode ? "guestReportHistory" : `reportHistory_${user?.uid}`;
       await AsyncStorage.setItem(key, JSON.stringify(updated));
 
-      // ✅ LƯU VÀO FIRESTORE (để tính tổng báo cáo cộng đồng)
+      // ✅ LƯU VÀO FIRESTORE
       if (!guestMode && user?.uid) {
         try {
           console.log("💾 Đang lưu báo cáo vào Firestore...", {
             category: report.category,
             userUid: user.uid,
           });
-          
           const docRef = await addDoc(collection(db, "reports"), {
             ...newItem,
             userUid: user.uid,
@@ -397,19 +400,15 @@ export const UserProvider = ({ children }) => {
             userPhoto: userProfile.photoURL || user.photoURL || "",
             timestamp: serverTimestamp(),
           });
-          
+
           console.log("✅ Lưu báo cáo thành công với ID:", docRef.id);
-          
-          // ✅ RELOAD NGAY LẬP TỨC để cập nhật tổng số
-          setTimeout(() => loadAllReports(), 500); // Delay nhỏ để Firestore kịp cập nhật
-          
+
+          setTimeout(() => loadAllReports(), 500);
+
         } catch (firestoreError) {
           console.error("❌ LỖI KHI LƯU VÀO FIRESTORE:", firestoreError);
-          console.error("Chi tiết lỗi:", firestoreError.message);
-          // Vẫn trả về success vì đã lưu local
         }
       } else if (guestMode) {
-        // ✅ Guest mode: cập nhật allReports = reportHistory
         setAllReports(updated);
       }
 
@@ -447,20 +446,19 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // ✅ MIGRATE DỮ LIỆU CŨ LÊN FIRESTORE (chạy 1 lần)
+  // ✅ MIGRATE DỮ LIỆU CŨ LÊN FIRESTORE
   const migrateReportsToFirestore = async () => {
     if (guestMode || !user?.uid) {
-      console.log("⏭️ Bỏ qua migrate: guest mode hoặc chưa đăng nhập");
+      console.log("⭐️ Bỏ qua migrate: guest mode hoặc chưa đăng nhập");
       return { success: false, message: "Không thể migrate" };
     }
 
     try {
-      console.log("🔄 Bắt đầu migrate báo cáo lên Firestore...");
-      
-      // Lấy tất cả báo cáo từ AsyncStorage
+      console.log("📄 Bắt đầu migrate báo cáo lên Firestore...");
+
       const key = `reportHistory_${user.uid}`;
       const localReports = await AsyncStorage.getItem(key);
-      
+
       if (!localReports) {
         console.log("ℹ️ Không có báo cáo local để migrate");
         return { success: true, message: "Không có dữ liệu cần migrate" };
@@ -469,7 +467,6 @@ export const UserProvider = ({ children }) => {
       const reports = JSON.parse(localReports);
       console.log(`📦 Tìm thấy ${reports.length} báo cáo local`);
 
-      // Kiểm tra xem đã migrate chưa bằng cách check Firestore
       const existingReports = await getDocs(collection(db, "reports"));
       const existingIds = existingReports.docs.map(d => d.data().id);
 
@@ -477,7 +474,6 @@ export const UserProvider = ({ children }) => {
       const batch = writeBatch(db);
 
       for (const report of reports) {
-        // Chỉ migrate những báo cáo chưa có trong Firestore
         if (!existingIds.includes(report.id)) {
           const docRef = doc(collection(db, "reports"));
           batch.set(docRef, {
@@ -495,10 +491,9 @@ export const UserProvider = ({ children }) => {
       if (migratedCount > 0) {
         await batch.commit();
         console.log(`✅ Migrate thành công ${migratedCount} báo cáo lên Firestore`);
-        
-        // Reload để cập nhật
+
         await loadAllReports();
-        
+
         return { success: true, message: `Đã migrate ${migratedCount} báo cáo` };
       } else {
         console.log("ℹ️ Tất cả báo cáo đã được đồng bộ");
@@ -834,6 +829,7 @@ export const UserProvider = ({ children }) => {
         "guest_notifications",
         "guest_notifSettings",
         "guestWasteHistory",
+        "guestPermissions",
       ];
       await AsyncStorage.multiRemove(keys);
     } catch (e) {
@@ -841,6 +837,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  // ==================== ✅ DELETE ALL USER DATA (FOR DELETE ACCOUNT) ====================
   const deleteAllUserData = async (uid) => {
     if (!uid) return { success: false, error: "Không có UID" };
 
@@ -884,7 +881,7 @@ export const UserProvider = ({ children }) => {
         batch.delete(docSnap.ref);
       });
 
-      // 5. Xóa comments của user (cập nhật các posts có comment của user)
+      // 5. Xóa comments của user
       const allPostsSnap = await getDocs(collection(db, "communityPosts"));
       allPostsSnap.docs.forEach((docSnap) => {
         const post = docSnap.data();
@@ -904,6 +901,16 @@ export const UserProvider = ({ children }) => {
         }
       });
 
+      // 7. Xóa tất cả reports của user
+      const reportsQuery = query(
+        collection(db, "reports"),
+        where("userUid", "==", uid)
+      );
+      const reportsSnap = await getDocs(reportsQuery);
+      reportsSnap.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
       // Thực thi batch
       await batch.commit();
 
@@ -916,7 +923,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // Effects
+  // ==================== EFFECTS ====================
   useEffect(() => {
     if (user || guestMode) {
       loadUserProfile();
@@ -926,11 +933,10 @@ export const UserProvider = ({ children }) => {
       loadCommunity();
       loadUserGroups();
       loadWasteClassificationHistory();
-      loadAllReports(); // ✅ Load tổng báo cáo
-      
-      // ✅ Tự động migrate dữ liệu cũ lên Firestore (chỉ chạy cho user, không chạy guest)
+      loadAllReports();
+
+      // ✅ Tự động migrate dữ liệu cũ lên Firestore
       if (!guestMode && user?.uid) {
-        // Delay 2s để đảm bảo các service khác đã load xong
         setTimeout(() => {
           migrateReportsToFirestore();
         }, 2000);
@@ -963,12 +969,12 @@ export const UserProvider = ({ children }) => {
 
     // Báo cáo
     reportHistory,
-    allReports, // ✅ Tổng báo cáo
+    allReports,
     addReportToHistory,
     updateReportStatus,
     clearReportHistory,
-    loadAllReports, // ✅ Function reload
-    migrateReportsToFirestore, // ✅ Function migrate dữ liệu cũ
+    loadAllReports,
+    migrateReportsToFirestore,
 
     // Chat
     chatHistory,
@@ -1000,45 +1006,11 @@ export const UserProvider = ({ children }) => {
     // Utility
     uploadToCloudinary,
     clearAllLocalData,
+    deleteAllUserData,
   };
 
   return (
-    <UserContext.Provider
-      value={{
-        userProfile,
-        reportHistory,
-        chatHistory,
-        loading,
-        aqiThreshold,
-        setAqiThreshold,
-        updateUserProfile,
-        addReportToHistory,
-        addChatToHistory,
-        loadChatHistory,
-        clearChatHistory,
-        clearReportHistory,
-        clearAllLocalData,
-        loadUserProfile,
-        updateReportStatus,
-        communityPosts,
-        communityGroups,
-        userGroups,
-        loadCommunity,
-        loadUserGroups,
-        addCommunityPost,
-        updateCommunityPost,
-        deleteCommunityPost,
-        toggleLikeOnPost,
-        addCommentToPost,
-        deleteComment,
-        sharePost,
-        createGroup,
-        joinGroup,
-        deleteGroup,
-        uploadToCloudinary,
-        deleteAllUserData,
-      }}
-    >
+    <UserContext.Provider value={contextValue}>
       {children}
     </UserContext.Provider>
   );
