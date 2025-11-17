@@ -1,5 +1,4 @@
 // src/screens/ProfileScreen.js
-// src/screens/ProfileScreen.js
 import React, { useContext } from "react";
 import {
   View,

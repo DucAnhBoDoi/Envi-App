@@ -1,4 +1,4 @@
-// src/context/UserContext.js - SỬ DỤNG CLOUDINARY THAY VÌ FIREBASE STORAGE
+// src/context/UserContext.js 
 
 import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -21,19 +21,14 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../services/firebaseConfig";
+import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@env";
 
 export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const { user, guestMode } = useContext(AuthContext);
 
-  // ==================== CLOUDINARY CONFIG ====================
-  // 🔥 Đăng ký tại: https://cloudinary.com/users/register/free
-  // 🔥 Sau khi đăng ký, lấy cloud_name từ Dashboard
-  const CLOUDINARY_CLOUD_NAME = "dlydwc9t3"; // ⚠️ THAY BẰNG CLOUD NAME CỦA BẠN
-  const CLOUDINARY_UPLOAD_PRESET = "green_hanoi"; // Tạo unsigned preset (hướng dẫn bên dưới)
-  
-  // States
+  // ==================== STATE ====================
   const [userProfile, setUserProfile] = useState({
     displayName: "",
     photoURL: "",
@@ -43,6 +38,9 @@ export const UserProvider = ({ children }) => {
     defaultRegion: "Hồ Chí Minh",
     bio: "",
     uid: undefined,
+    points: 0,
+    campaignsJoined: 0,
+    wasteClassified: 0,
   });
 
   const [reportHistory, setReportHistory] = useState([]);
@@ -54,28 +52,27 @@ export const UserProvider = ({ children }) => {
   const [communityGroups, setCommunityGroups] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
 
-  /**
-   * ✅ uploadToCloudinary - UPLOAD MIỄN PHÍ
-   * Không cần API key, hoàn toàn free trong giới hạn 25GB/tháng
-   */
+  // ✅ TỔNG BÁO CÁO CỦA TẤT CẢ USER
+  const [allReports, setAllReports] = useState([]);
+
+  // ✅ AI PHÂN LOẠI RÁC
+  const [wasteClassificationHistory, setWasteClassificationHistory] = useState([]);
+
+  // ==================== UPLOAD CLOUDINARY ====================
   const uploadToCloudinary = async (uri, resourceType = "image") => {
     if (!uri) throw new Error("URI không hợp lệ");
-
-    // Kiểm tra nếu đã là URL Cloudinary
     if (typeof uri === "string" && uri.includes("cloudinary.com")) {
       return uri;
     }
 
     try {
-      console.log("📤 Upload lên Cloudinary:", { uri: uri.substring(0, 50), resourceType });
+      console.log("Upload lên Cloudinary:", { uri: uri.substring(0, 50), resourceType });
 
-      // Tạo FormData
       const formData = new FormData();
-      
-      // Xử lý file name và type
+
       let fileName = "upload_" + Date.now();
       let fileType = "image/jpeg";
-      
+
       if (resourceType === "video") {
         fileName += ".mp4";
         fileType = "video/mp4";
@@ -83,23 +80,20 @@ export const UserProvider = ({ children }) => {
         fileName += ".jpg";
       }
 
-      // Thêm file vào FormData
       formData.append("file", {
         uri: uri,
         type: fileType,
         name: fileName,
       });
-      
+
       formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
       formData.append("cloud_name", CLOUDINARY_CLOUD_NAME);
-      
-      // Thêm folder để organize
+
       const folder = resourceType === "video" ? "videos" : "images";
       formData.append("folder", `green_hanoi/${folder}`);
 
-      // Upload
       const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
-      
+
       const response = await fetch(uploadUrl, {
         method: "POST",
         body: formData,
@@ -114,17 +108,17 @@ export const UserProvider = ({ children }) => {
       }
 
       const data = await response.json();
-      console.log("✅ Upload thành công:", data.secure_url.substring(0, 50));
-      
-      return data.secure_url; // URL công khai
+      console.log("Upload thành công:", data.secure_url.substring(0, 50));
+
+      return data.secure_url;
 
     } catch (error) {
-      console.error("❌ Upload Cloudinary thất bại:", error);
+      console.error("Upload Cloudinary thất bại:", error);
       throw new Error(`Upload thất bại: ${error.message}`);
     }
   };
 
-  // ==================== AQI threshold ====================
+  // ==================== AQI THRESHOLD ====================
   const loadAqiThreshold = async () => {
     try {
       const key = guestMode ? "guestAqiThreshold" : `aqiThreshold_${user?.uid}`;
@@ -163,6 +157,9 @@ export const UserProvider = ({ children }) => {
             defaultRegion: "Hồ Chí Minh",
             bio: "Tài khoản khách - Chỉ lưu trên thiết bị",
             uid: "guest",
+            points: 0,
+            campaignsJoined: 0,
+            wasteClassified: 0,
           };
           await AsyncStorage.setItem("guestProfile", JSON.stringify(guest));
           setUserProfile(guest);
@@ -170,8 +167,17 @@ export const UserProvider = ({ children }) => {
       } else {
         const docRef = doc(db, "users", user.uid);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) setUserProfile({ ...docSnap.data(), uid: user.uid });
-        else {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUserProfile({
+            ...userProfile,
+            ...data,
+            uid: user.uid,
+            points: data.points ?? userProfile.points ?? 0,
+            campaignsJoined: data.campaignsJoined ?? userProfile.campaignsJoined ?? 0,
+            wasteClassified: data.wasteClassified ?? userProfile.wasteClassified ?? 0,
+          });
+        } else {
           const newProfile = {
             displayName: user.displayName || "Người dùng mới",
             photoURL: user.photoURL || "",
@@ -182,6 +188,9 @@ export const UserProvider = ({ children }) => {
             bio: "",
             createdAt: new Date().toISOString(),
             uid: user.uid,
+            points: 0,
+            campaignsJoined: 0,
+            wasteClassified: 0,
           };
           await setDoc(docRef, newProfile);
           setUserProfile(newProfile);
@@ -210,6 +219,93 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  // ==================== ĐIỂM & HOẠT ĐỘNG ====================
+  const addPoints = async (points) => {
+    try {
+      const newPoints = (userProfile.points || 0) + points;
+      await updateUserProfile({ points: newPoints });
+      return { success: true, newPoints };
+    } catch (e) {
+      console.error("Lỗi thêm điểm:", e);
+      return { success: false };
+    }
+  };
+
+  const incrementCampaignsJoined = async () => {
+    try {
+      if (guestMode) {
+        const newCount = (userProfile.campaignsJoined || 0) + 1;
+        await updateUserProfile({ campaignsJoined: newCount });
+        await addPoints(10);
+        return { success: true, count: newCount };
+      }
+
+      const ref = doc(db, "users", user.uid);
+
+      // Firestore auto-increment
+      await updateDoc(ref, {
+        campaignsJoined: increment(1),
+        points: increment(10),
+      });
+
+      // cập nhật state ngay
+      const refreshed = {
+        ...userProfile,
+        campaignsJoined: userProfile.campaignsJoined + 1,
+        points: (userProfile.points || 0) + 10,
+      };
+      setUserProfile(refreshed);
+
+      return { success: true, count: refreshed.campaignsJoined };
+
+    } catch (err) {
+      console.error("Lỗi tăng chiến dịch:", err);
+      return { success: false };
+    }
+  };
+
+
+  // ==================== AI PHÂN LOẠI RÁC ====================
+  const loadWasteClassificationHistory = async () => {
+    try {
+      const key = guestMode ? "guestWasteHistory" : `wasteHistory_${user?.uid}`;
+      const saved = await AsyncStorage.getItem(key);
+      if (saved) {
+        setWasteClassificationHistory(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error("Lỗi load waste history:", e);
+    }
+  };
+
+  const addWasteClassification = async (wasteType, imageUri = null) => {
+    try {
+      const entry = {
+        id: Date.now().toString(),
+        type: wasteType,
+        imageUri,
+        timestamp: new Date().toISOString(),
+      };
+
+      const key = guestMode ? "guestWasteHistory" : `wasteHistory_${user?.uid}`;
+      const existing = await AsyncStorage.getItem(key);
+      const history = existing ? JSON.parse(existing) : [];
+
+      const updated = [entry, ...history].slice(0, 100);
+      await AsyncStorage.setItem(key, JSON.stringify(updated));
+      setWasteClassificationHistory(updated);
+
+      const newCount = (userProfile.wasteClassified || 0) + 1;
+      await updateUserProfile({ wasteClassified: newCount });
+      await addPoints(5);
+
+      return { success: true, count: newCount };
+    } catch (e) {
+      console.error("Lỗi lưu waste classification:", e);
+      return { success: false, error: e.message };
+    }
+  };
+
   const clearProfile = () => {
     setUserProfile({
       displayName: "",
@@ -220,40 +316,118 @@ export const UserProvider = ({ children }) => {
       defaultRegion: "Hồ Chí Minh",
       bio: "",
       uid: undefined,
+      points: 0,
+      campaignsJoined: 0,
+      wasteClassified: 0,
     });
     setReportHistory([]);
     setChatHistory([]);
+    setWasteClassificationHistory([]);
     setAqiThresholdState(3);
   };
 
-  // ==================== REPORT / CHAT HISTORY ====================
+  // ==================== BÁO CÁO ====================
   const loadReportHistory = async () => {
     try {
       const key = guestMode ? "guestReportHistory" : `reportHistory_${user.uid}`;
       const history = await AsyncStorage.getItem(key);
       setReportHistory(history ? JSON.parse(history) : []);
     } catch (error) {
-      console.error("❌ Lỗi load report history:", error);
+      console.error("Lỗi load report history:", error);
     }
   };
 
+  // ✅ LOAD TẤT CẢ BÁO CÁO TỪ FIRESTORE - QUAN TRỌNG!
+  const loadAllReports = useCallback(async () => {
+    if (guestMode) {
+      // ✅ Nếu là guest mode, chỉ hiển thị báo cáo local của guest
+      try {
+        const key = "guestReportHistory";
+        const history = await AsyncStorage.getItem(key);
+        setAllReports(history ? JSON.parse(history) : []);
+      } catch (e) {
+        console.error("Lỗi load guest reports:", e);
+        setAllReports([]);
+      }
+      return;
+    }
+    
+    try {
+      console.log("🔄 Đang load tất cả báo cáo từ Firestore...");
+      const snap = await getDocs(collection(db, "reports"));
+      const reports = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
+        };
+      });
+      console.log(`✅ Load thành công ${reports.length} báo cáo từ Firestore`);
+      setAllReports(reports);
+    } catch (e) {
+      console.error("❌ Lỗi load tất cả báo cáo:", e);
+      setAllReports([]);
+    }
+  }, [guestMode]);
+
   const addReportToHistory = async (report) => {
     try {
-      const newItem = { id: Date.now().toString(), ...report, timestamp: new Date().toISOString() };
+      const newItem = {
+        id: Date.now().toString(),
+        ...report,
+        timestamp: new Date().toISOString()
+      };
       const updated = [newItem, ...reportHistory].slice(0, 50);
       setReportHistory(updated);
+
       const key = guestMode ? "guestReportHistory" : `reportHistory_${user?.uid}`;
       await AsyncStorage.setItem(key, JSON.stringify(updated));
+
+      // ✅ LƯU VÀO FIRESTORE (để tính tổng báo cáo cộng đồng)
+      if (!guestMode && user?.uid) {
+        try {
+          console.log("💾 Đang lưu báo cáo vào Firestore...", {
+            category: report.category,
+            userUid: user.uid,
+          });
+          
+          const docRef = await addDoc(collection(db, "reports"), {
+            ...newItem,
+            userUid: user.uid,
+            userName: userProfile.displayName || user.displayName || "Người dùng",
+            userPhoto: userProfile.photoURL || user.photoURL || "",
+            timestamp: serverTimestamp(),
+          });
+          
+          console.log("✅ Lưu báo cáo thành công với ID:", docRef.id);
+          
+          // ✅ RELOAD NGAY LẬP TỨC để cập nhật tổng số
+          setTimeout(() => loadAllReports(), 500); // Delay nhỏ để Firestore kịp cập nhật
+          
+        } catch (firestoreError) {
+          console.error("❌ LỖI KHI LƯU VÀO FIRESTORE:", firestoreError);
+          console.error("Chi tiết lỗi:", firestoreError.message);
+          // Vẫn trả về success vì đã lưu local
+        }
+      } else if (guestMode) {
+        // ✅ Guest mode: cập nhật allReports = reportHistory
+        setAllReports(updated);
+      }
+
+      await addPoints(15);
       return { success: true };
     } catch (e) {
-      console.error("Lỗi thêm report:", e);
+      console.error("❌ Lỗi thêm report:", e);
       return { success: false, error: e.message };
     }
   };
 
   const updateReportStatus = async (reportId, newStatus) => {
     try {
-      const updatedHistory = reportHistory.map((r) => (r.id === reportId ? { ...r, status: newStatus } : r));
+      const updatedHistory = reportHistory.map((r) =>
+        r.id === reportId ? { ...r, status: newStatus } : r
+      );
       setReportHistory(updatedHistory);
       const key = guestMode ? "guestReportHistory" : `reportHistory_${user?.uid}`;
       await AsyncStorage.setItem(key, JSON.stringify(updatedHistory));
@@ -275,6 +449,71 @@ export const UserProvider = ({ children }) => {
     }
   };
 
+  // ✅ MIGRATE DỮ LIỆU CŨ LÊN FIRESTORE (chạy 1 lần)
+  const migrateReportsToFirestore = async () => {
+    if (guestMode || !user?.uid) {
+      console.log("⏭️ Bỏ qua migrate: guest mode hoặc chưa đăng nhập");
+      return { success: false, message: "Không thể migrate" };
+    }
+
+    try {
+      console.log("🔄 Bắt đầu migrate báo cáo lên Firestore...");
+      
+      // Lấy tất cả báo cáo từ AsyncStorage
+      const key = `reportHistory_${user.uid}`;
+      const localReports = await AsyncStorage.getItem(key);
+      
+      if (!localReports) {
+        console.log("ℹ️ Không có báo cáo local để migrate");
+        return { success: true, message: "Không có dữ liệu cần migrate" };
+      }
+
+      const reports = JSON.parse(localReports);
+      console.log(`📦 Tìm thấy ${reports.length} báo cáo local`);
+
+      // Kiểm tra xem đã migrate chưa bằng cách check Firestore
+      const existingReports = await getDocs(collection(db, "reports"));
+      const existingIds = existingReports.docs.map(d => d.data().id);
+
+      let migratedCount = 0;
+      const batch = writeBatch(db);
+
+      for (const report of reports) {
+        // Chỉ migrate những báo cáo chưa có trong Firestore
+        if (!existingIds.includes(report.id)) {
+          const docRef = doc(collection(db, "reports"));
+          batch.set(docRef, {
+            ...report,
+            userUid: user.uid,
+            userName: userProfile.displayName || user.displayName || "Người dùng",
+            userPhoto: userProfile.photoURL || user.photoURL || "",
+            timestamp: serverTimestamp(),
+            migratedAt: new Date().toISOString(),
+          });
+          migratedCount++;
+        }
+      }
+
+      if (migratedCount > 0) {
+        await batch.commit();
+        console.log(`✅ Migrate thành công ${migratedCount} báo cáo lên Firestore`);
+        
+        // Reload để cập nhật
+        await loadAllReports();
+        
+        return { success: true, message: `Đã migrate ${migratedCount} báo cáo` };
+      } else {
+        console.log("ℹ️ Tất cả báo cáo đã được đồng bộ");
+        return { success: true, message: "Dữ liệu đã được đồng bộ" };
+      }
+
+    } catch (error) {
+      console.error("❌ Lỗi khi migrate:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // ==================== CHAT ====================
   const loadChatHistory = async () => {
     try {
       if (!user) {
@@ -293,7 +532,7 @@ export const UserProvider = ({ children }) => {
         setChatHistory([]);
       }
     } catch (error) {
-      console.error("❌ Lỗi load chat history:", error);
+      console.error("Lỗi load chat history:", error);
       setChatHistory([]);
     }
   };
@@ -315,7 +554,7 @@ export const UserProvider = ({ children }) => {
       setChatHistory(newHistory);
       return { success: true };
     } catch (error) {
-      console.error("❌ Lỗi thêm chat:", error);
+      console.error("Lỗi thêm chat:", error);
       return { success: false, error: error.message };
     }
   };
@@ -331,7 +570,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // ==================== COMMUNITY ====================
+  // ==================== CỘNG ĐỒNG ====================
   const loadCommunity = useCallback(async () => {
     if (guestMode) {
       setCommunityPosts([]);
@@ -369,16 +608,15 @@ export const UserProvider = ({ children }) => {
     }
     try {
       const snap = await getDocs(collection(db, "communityGroups"));
-      const joined = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((g) => (g.memberUids || []).includes(user.uid));
+      const joined = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((g) => (g.memberUids || []).includes(user.uid));
       setUserGroups(joined);
     } catch (e) {
       console.error("Lỗi load user groups:", e);
     }
   }, [guestMode, user?.uid]);
 
-  /**
-   * ✅ addCommunityPost - SỬ DỤNG CLOUDINARY
-   */
   const addCommunityPost = async ({ content, image = null, video = null, type = "text" }) => {
     try {
       if (guestMode) return { success: false, error: "Khách không thể đăng bài" };
@@ -386,33 +624,16 @@ export const UserProvider = ({ children }) => {
       let uploadedImage = null;
       let uploadedVideo = null;
 
-      // Upload image
       if (image) {
-        try {
-          uploadedImage = await uploadToCloudinary(image, "image");
-          if (!uploadedImage || !uploadedImage.includes("cloudinary.com")) {
-            throw new Error("URL ảnh không hợp lệ");
-          }
-        } catch (err) {
-          console.error("❌ Lỗi upload ảnh:", err);
-          return { success: false, error: `Không thể upload ảnh: ${err.message}` };
-        }
+        uploadedImage = await uploadToCloudinary(image, "image");
+        if (!uploadedImage?.includes("cloudinary.com")) throw new Error("URL ảnh không hợp lệ");
       }
 
-      // Upload video
       if (video) {
-        try {
-          uploadedVideo = await uploadToCloudinary(video, "video");
-          if (!uploadedVideo || !uploadedVideo.includes("cloudinary.com")) {
-            throw new Error("URL video không hợp lệ");
-          }
-        } catch (err) {
-          console.error("❌ Lỗi upload video:", err);
-          return { success: false, error: `Không thể upload video: ${err.message}` };
-        }
+        uploadedVideo = await uploadToCloudinary(video, "video");
+        if (!uploadedVideo?.includes("cloudinary.com")) throw new Error("URL video không hợp lệ");
       }
 
-      // Lưu vào Firestore
       const postData = {
         content,
         type,
@@ -430,13 +651,9 @@ export const UserProvider = ({ children }) => {
         createdAt: new Date().toISOString(),
       };
 
-      console.log("💾 Lưu post vào Firestore:", { 
-        hasImage: !!uploadedImage, 
-        hasVideo: !!uploadedVideo,
-      });
-
       await addDoc(collection(db, "communityPosts"), postData);
       await loadCommunity();
+      await addPoints(8);
       return { success: true };
     } catch (e) {
       console.error("Lỗi đăng bài:", e);
@@ -444,23 +661,13 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  /**
-   * ✅ addCommentToPost - SỬ DỤNG CLOUDINARY
-   */
   const addCommentToPost = async (postId, text, image = null) => {
     if (guestMode) return { success: false, error: "Khách không thể bình luận" };
     try {
       let uploadedImage = null;
       if (image) {
-        try {
-          uploadedImage = await uploadToCloudinary(image, "image");
-          if (!uploadedImage || !uploadedImage.includes("cloudinary.com")) {
-            throw new Error("URL ảnh comment không hợp lệ");
-          }
-        } catch (err) {
-          console.error("❌ Lỗi upload ảnh comment:", err);
-          return { success: false, error: `Không thể upload ảnh: ${err.message}` };
-        }
+        uploadedImage = await uploadToCloudinary(image, "image");
+        if (!uploadedImage?.includes("cloudinary.com")) throw new Error("URL ảnh comment không hợp lệ");
       }
 
       const comment = {
@@ -473,8 +680,11 @@ export const UserProvider = ({ children }) => {
         timestamp: new Date().toISOString(),
       };
 
-      await updateDoc(doc(db, "communityPosts", postId), { comments: arrayUnion(comment) });
+      await updateDoc(doc(db, "communityPosts", postId), {
+        comments: arrayUnion(comment)
+      });
       await loadCommunity();
+      await addPoints(3);
       return { success: true };
     } catch (e) {
       console.error("Lỗi thêm bình luận:", e);
@@ -489,8 +699,11 @@ export const UserProvider = ({ children }) => {
       const postRef = doc(db, "communityPosts", postId);
       const post = communityPosts.find((p) => p.id === postId);
       const liked = post?.likes?.includes(uid);
-      await updateDoc(postRef, { likes: liked ? arrayRemove(uid) : arrayUnion(uid) });
+      await updateDoc(postRef, {
+        likes: liked ? arrayRemove(uid) : arrayUnion(uid)
+      });
       await loadCommunity();
+      if (!liked) await addPoints(1);
       return { success: true, action: liked ? "unliked" : "liked" };
     } catch (e) {
       console.error("Lỗi toggle like:", e);
@@ -502,6 +715,7 @@ export const UserProvider = ({ children }) => {
     try {
       await updateDoc(doc(db, "communityPosts", postId), { shares: increment(1) });
       await loadCommunity();
+      await addPoints(5);
       return { success: true };
     } catch (e) {
       console.error("Lỗi share post:", e);
@@ -523,7 +737,7 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  const createGroup = async ({ name, icon = "🏙️", color = "#4CAF50", region = "Hồ Chí Minh", district = "", ward = "", description = "" }) => {
+  const createGroup = async ({ name, icon = "Thành phố", color = "#4CAF50", region = "Hồ Chí Minh", district = "", ward = "", description = "" }) => {
     if (guestMode) return { success: false, error: "Khách không thể tạo nhóm" };
     try {
       const uid = user.uid;
@@ -540,6 +754,7 @@ export const UserProvider = ({ children }) => {
       const docRef = await addDoc(collection(db, "communityGroups"), groupObj);
       await loadCommunity();
       await loadUserGroups();
+      await addPoints(20);
       return { success: true, id: docRef.id };
     } catch (e) {
       console.error("Lỗi tạo group:", e);
@@ -563,6 +778,7 @@ export const UserProvider = ({ children }) => {
       await batch.commit();
       await loadCommunity();
       await loadUserGroups();
+      if (!isMember) await addPoints(10);
       return { success: true, action: isMember ? "left" : "joined" };
     } catch (e) {
       console.error("Lỗi join/leave group:", e);
@@ -576,7 +792,8 @@ export const UserProvider = ({ children }) => {
       const refDoc = doc(db, "communityGroups", groupId);
       const snap = await getDoc(refDoc);
       if (!snap.exists()) return { success: false, error: "Nhóm không tồn tại." };
-      if (snap.data().creator?.uid !== user.uid) return { success: false, error: "Chỉ người tạo nhóm mới có thể xóa." };
+      if (snap.data().creator?.uid !== user.uid)
+        return { success: false, error: "Chỉ người tạo nhóm mới có thể xóa." };
       await deleteDoc(refDoc);
       await loadCommunity();
       await loadUserGroups();
@@ -611,14 +828,22 @@ export const UserProvider = ({ children }) => {
 
   const clearAllLocalData = async () => {
     try {
-      const keys = ["guestProfile", "guestReportHistory", "guestChatHistory", "guestAqiThreshold", "guest_notifications", "guest_notifSettings"];
+      const keys = [
+        "guestProfile",
+        "guestReportHistory",
+        "guestChatHistory",
+        "guestAqiThreshold",
+        "guest_notifications",
+        "guest_notifSettings",
+        "guestWasteHistory",
+      ];
       await AsyncStorage.multiRemove(keys);
     } catch (e) {
       console.error("Lỗi xóa dữ liệu local:", e);
     }
   };
 
-  // Effects
+  // ==================== EFFECTS ====================
   useEffect(() => {
     if (user || guestMode) {
       loadUserProfile();
@@ -627,50 +852,85 @@ export const UserProvider = ({ children }) => {
       loadAqiThreshold();
       loadCommunity();
       loadUserGroups();
+      loadWasteClassificationHistory();
+      loadAllReports(); // ✅ Load tổng báo cáo
+      
+      // ✅ Tự động migrate dữ liệu cũ lên Firestore (chỉ chạy cho user, không chạy guest)
+      if (!guestMode && user?.uid) {
+        // Delay 2s để đảm bảo các service khác đã load xong
+        setTimeout(() => {
+          migrateReportsToFirestore();
+        }, 2000);
+      }
     } else {
       clearProfile();
       setCommunityPosts([]);
       setCommunityGroups([]);
       setUserGroups([]);
+      setAllReports([]);
     }
   }, [user, guestMode]);
 
+  // ==================== CONTEXT VALUE ====================
+  const contextValue = {
+    // Profile & Loading
+    userProfile,
+    loading,
+    updateUserProfile,
+    loadUserProfile,
+    clearProfile,
+
+    // Điểm & Hoạt động
+    addPoints,
+    incrementCampaignsJoined,
+
+    // AQI
+    aqiThreshold,
+    setAqiThreshold,
+
+    // Báo cáo
+    reportHistory,
+    allReports, // ✅ Tổng báo cáo
+    addReportToHistory,
+    updateReportStatus,
+    clearReportHistory,
+    loadAllReports, // ✅ Function reload
+    migrateReportsToFirestore, // ✅ Function migrate dữ liệu cũ
+
+    // Chat
+    chatHistory,
+    addChatToHistory,
+    loadChatHistory,
+    clearChatHistory,
+
+    // AI Phân loại rác
+    wasteClassificationHistory,
+    addWasteClassification,
+
+    // Cộng đồng
+    communityPosts,
+    communityGroups,
+    userGroups,
+    loadCommunity,
+    loadUserGroups,
+    addCommunityPost,
+    addCommentToPost,
+    toggleLikeOnPost,
+    sharePost,
+    deleteComment,
+    createGroup,
+    joinGroup,
+    deleteGroup,
+    deleteCommunityPost,
+    updateCommunityPost,
+
+    // Utility
+    uploadToCloudinary,
+    clearAllLocalData,
+  };
+
   return (
-    <UserContext.Provider
-      value={{
-        userProfile,
-        reportHistory,
-        chatHistory,
-        loading,
-        aqiThreshold,
-        setAqiThreshold,
-        updateUserProfile,
-        addReportToHistory,
-        addChatToHistory,
-        loadChatHistory,
-        clearChatHistory,
-        clearReportHistory,
-        clearAllLocalData,
-        loadUserProfile,
-        updateReportStatus,
-        communityPosts,
-        communityGroups,
-        userGroups,
-        loadCommunity,
-        loadUserGroups,
-        addCommunityPost,
-        updateCommunityPost,
-        deleteCommunityPost,
-        toggleLikeOnPost,
-        addCommentToPost,
-        deleteComment,
-        sharePost,
-        createGroup,
-        joinGroup,
-        deleteGroup,
-        uploadToCloudinary, // Export để dùng ở nơi khác nếu cần
-      }}
-    >
+    <UserContext.Provider value={contextValue}>
       {children}
     </UserContext.Provider>
   );
