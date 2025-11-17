@@ -19,7 +19,9 @@ import * as Location from "expo-location";
 import MapView, { Marker } from "react-native-maps";
 import { UserContext } from "../context/UserContext";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
+import { PermissionsContext } from "../context/PermissionsContext";
 
+// Danh mục vi phạm
 const VIOLATION_CATEGORIES = [
   {
     id: "1",
@@ -71,6 +73,7 @@ export default function ReportScreen({ navigation }) {
   const [showMap, setShowMap] = useState(false);
   const [mapRegion, setMapRegion] = useState(null);
   const [selectedMapLocation, setSelectedMapLocation] = useState(null);
+  const { permissions, toggleLocationPermission, checkSystemPermissions } = useContext(PermissionsContext);
 
   useEffect(() => {
     getCurrentLocation();
@@ -109,17 +112,41 @@ export default function ReportScreen({ navigation }) {
   const getCurrentLocation = async () => {
     try {
       setLoadingLocation(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
 
-      if (status !== "granted") {
+      // Refresh permissions
+      await checkSystemPermissions();
+
+      if (!permissions.location) {
         Alert.alert(
-          "Cần quyền truy cập vị trí",
-          "Vui lòng cấp quyền để lấy vị trí hiện tại"
+          "Cần quyền vị trí",
+          "Ứng dụng cần quyền vị trí để xác định vị trí vi phạm.",
+          [
+            { text: "Hủy", style: "cancel" },
+            {
+              text: "Cấp quyền",
+              onPress: async () => {
+                const result = await toggleLocationPermission();
+                if (result.success) {
+                  await getLocationData();
+                }
+              }
+            },
+          ]
         );
         setLoadingLocation(false);
         return;
       }
 
+      await getLocationData();
+    } catch (error) {
+      console.error("Lỗi lấy vị trí:", error);
+      Alert.alert("Lỗi", "Không thể lấy vị trí hiện tại");
+      setLoadingLocation(false);
+    }
+  };
+
+  const getLocationData = async () => {
+    try {
       const loc = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = loc.coords;
 
@@ -133,7 +160,6 @@ export default function ReportScreen({ navigation }) {
 
       const fullAddress = await getAddressFromCoords(latitude, longitude);
       setAddress(fullAddress);
-
     } catch (error) {
       console.error("Lỗi lấy vị trí:", error);
       Alert.alert("Lỗi", "Không thể lấy vị trí hiện tại");
@@ -286,6 +312,7 @@ export default function ReportScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
 
       {showMap ? (
+        /* ==================== BẢN ĐỒ TOÀN MÀN HÌNH ==================== */
         <View style={styles.mapContainer}>
           <MapView
             style={StyleSheet.absoluteFillObject}
@@ -311,8 +338,9 @@ export default function ReportScreen({ navigation }) {
           </View>
         </View>
       ) : (
+        /* ==================== FORM BÁO CÁO – CUỘN ĐẸP ==================== */
         <SafeAreaScrollView showsVerticalScrollIndicator={false}>
-          {/* HEADER */}
+          {/* HEADER – CHUẨN 56PX */}
           <View style={styles.header}>
             <Ionicons name="alert-circle" size={32} color="#E53935" />
             <Text style={styles.headerText}>Báo cáo vi phạm môi trường</Text>
@@ -492,9 +520,10 @@ export default function ReportScreen({ navigation }) {
             </Text>
           </View>
 
+          {/* KHOẢNG CÁCH ĐẸP GIỮA LƯU Ý VÀ NÚT GỬI */}
           <View style={{ height: 10 }} />
 
-          {/* NÚT GỬI BÁO CÁO */}
+          {/* NÚT GỬI BÁO CÁO – CUỘN THEO, ĐẸP RIÊNG, KHÔNG DÍNH LƯU Ý */}
           <View style={styles.submitWrapper}>
             <TouchableOpacity style={styles.submitButton} onPress={submitReport}>
               <Ionicons name="send" size={20} color="#fff" />
@@ -502,6 +531,7 @@ export default function ReportScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
+          {/* ĐỆM CUỐI ĐỂ KHÔNG BỊ CHE TAB BAR */}
           <View style={{ height: 10 }} />
         </SafeAreaScrollView>
       )}

@@ -12,6 +12,7 @@ import {
   getDocs,
   query,
   orderBy,
+  where,
   serverTimestamp,
   updateDoc,
   deleteDoc,
@@ -52,13 +53,10 @@ export const UserProvider = ({ children }) => {
   const [communityGroups, setCommunityGroups] = useState([]);
   const [userGroups, setUserGroups] = useState([]);
 
-  // ✅ TỔNG BÁO CÁO CỦA TẤT CẢ USER
-  const [allReports, setAllReports] = useState([]);
-
-  // ✅ AI PHÂN LOẠI RÁC
-  const [wasteClassificationHistory, setWasteClassificationHistory] = useState([]);
-
-  // ==================== UPLOAD CLOUDINARY ====================
+  /**
+   * uploadToCloudinary - UPLOAD MIỄN PHÍ
+   * Không cần API key, hoàn toàn free trong giới hạn 25GB/tháng
+   */
   const uploadToCloudinary = async (uri, resourceType = "image") => {
     if (!uri) throw new Error("URI không hợp lệ");
     if (typeof uri === "string" && uri.includes("cloudinary.com")) {
@@ -843,7 +841,82 @@ export const UserProvider = ({ children }) => {
     }
   };
 
-  // ==================== EFFECTS ====================
+  const deleteAllUserData = async (uid) => {
+    if (!uid) return { success: false, error: "Không có UID" };
+
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Xóa user profile
+      const userDocRef = doc(db, "users", uid);
+      batch.delete(userDocRef);
+
+      // 2. Xóa tất cả bài viết của user
+      const postsQuery = query(
+        collection(db, "communityPosts"),
+        where("author.uid", "==", uid)
+      );
+      const postsSnap = await getDocs(postsQuery);
+      postsSnap.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 3. Xóa user khỏi tất cả groups
+      const groupsQuery = query(
+        collection(db, "communityGroups"),
+        where("memberUids", "array-contains", uid)
+      );
+      const groupsSnap = await getDocs(groupsQuery);
+      groupsSnap.docs.forEach((docSnap) => {
+        batch.update(docSnap.ref, {
+          memberUids: arrayRemove(uid),
+          members: increment(-1),
+        });
+      });
+
+      // 4. Xóa các groups do user tạo
+      const createdGroupsQuery = query(
+        collection(db, "communityGroups"),
+        where("creator.uid", "==", uid)
+      );
+      const createdGroupsSnap = await getDocs(createdGroupsQuery);
+      createdGroupsSnap.docs.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+
+      // 5. Xóa comments của user (cập nhật các posts có comment của user)
+      const allPostsSnap = await getDocs(collection(db, "communityPosts"));
+      allPostsSnap.docs.forEach((docSnap) => {
+        const post = docSnap.data();
+        const comments = post.comments || [];
+        const filteredComments = comments.filter(c => c.uid !== uid);
+
+        if (filteredComments.length !== comments.length) {
+          batch.update(docSnap.ref, { comments: filteredComments });
+        }
+      });
+
+      // 6. Xóa likes của user
+      allPostsSnap.docs.forEach((docSnap) => {
+        const post = docSnap.data();
+        if (post.likes?.includes(uid)) {
+          batch.update(docSnap.ref, { likes: arrayRemove(uid) });
+        }
+      });
+
+      // Thực thi batch
+      await batch.commit();
+
+      console.log("✅ Đã xóa toàn bộ dữ liệu Firestore của user:", uid);
+      return { success: true };
+
+    } catch (error) {
+      console.error("❌ Lỗi xóa dữ liệu Firestore:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Effects
   useEffect(() => {
     if (user || guestMode) {
       loadUserProfile();
@@ -930,7 +1003,42 @@ export const UserProvider = ({ children }) => {
   };
 
   return (
-    <UserContext.Provider value={contextValue}>
+    <UserContext.Provider
+      value={{
+        userProfile,
+        reportHistory,
+        chatHistory,
+        loading,
+        aqiThreshold,
+        setAqiThreshold,
+        updateUserProfile,
+        addReportToHistory,
+        addChatToHistory,
+        loadChatHistory,
+        clearChatHistory,
+        clearReportHistory,
+        clearAllLocalData,
+        loadUserProfile,
+        updateReportStatus,
+        communityPosts,
+        communityGroups,
+        userGroups,
+        loadCommunity,
+        loadUserGroups,
+        addCommunityPost,
+        updateCommunityPost,
+        deleteCommunityPost,
+        toggleLikeOnPost,
+        addCommentToPost,
+        deleteComment,
+        sharePost,
+        createGroup,
+        joinGroup,
+        deleteGroup,
+        uploadToCloudinary,
+        deleteAllUserData,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );

@@ -8,6 +8,9 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from "firebase/auth";
 import { auth as firebaseAuth } from "../services/firebaseConfig";
 
@@ -52,6 +55,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Đăng nhập bằng Google (Firebase đã xác thực sẵn)
+  const signInWithGoogle = async (user) => {
+    try {
+      // user từ firebase đã đăng nhập rồi
+      setUser(user);
+      setGuestMode(false);
+      await AsyncStorage.setItem("user", JSON.stringify(user));
+      await AsyncStorage.removeItem("guestUser");
+      console.log("Lưu thông tin Google user vào context:", user.displayName);
+      return { success: true };
+    } catch (error) {
+      console.log("Lỗi khi lưu Google user:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+
+  // Đăng nhập với email/mật khẩu
   const signInWithEmail = async (email, password) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -122,6 +143,87 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const deleteAccount = async (password = null) => {
+    try {
+      if (guestMode) {
+        // XÓA DỮ LIỆU KHÁCH
+        await AsyncStorage.multiRemove([
+          "guestUser",
+          "guestProfile",
+          "guestReportHistory",
+          "guestChatHistory",
+          "guestAqiThreshold",
+          "guest_notifications",
+          "guest_notifSettings",
+          "guest_learningQuizHistory",
+          "guest_learningCompletedTips",
+          "guestPermissions",
+        ]);
+
+        setUser(null);
+        setGuestMode(false);
+        return { success: true, message: "Đã xóa tài khoản khách" };
+      }
+
+      // XÓA TÀI KHOẢN FIREBASE
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        return { success: false, error: "Không tìm thấy người dùng" };
+      }
+
+      // Nếu là tài khoản email/password, yêu cầu xác thực lại
+      if (currentUser.providerData[0]?.providerId === "password") {
+        if (!password) {
+          return {
+            success: false,
+            error: "Cần nhập mật khẩu để xác thực",
+            requirePassword: true
+          };
+        }
+
+        // Xác thực lại
+        const credential = EmailAuthProvider.credential(
+          currentUser.email,
+          password
+        );
+        await reauthenticateWithCredential(currentUser, credential);
+      }
+
+      // Xóa user khỏi Firebase Auth
+      await deleteUser(currentUser);
+
+      // Xóa dữ liệu local
+      await AsyncStorage.multiRemove([
+        "user",
+        `reportHistory_${currentUser.uid}`,
+        `chatHistory_${currentUser.uid}`,
+        `aqiThreshold_${currentUser.uid}`,
+        `permissions_${currentUser.uid}`,
+      ]);
+
+      setUser(null);
+      setGuestMode(false);
+
+      return { success: true, message: "Tài khoản đã được xóa" };
+    } catch (error) {
+      console.error("Lỗi xóa tài khoản:", error);
+
+      // Xử lý các lỗi cụ thể
+      if (error.code === "auth/requires-recent-login") {
+        return {
+          success: false,
+          error: "Vui lòng đăng nhập lại trước khi xóa tài khoản",
+          requireReauth: true
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message || "Không thể xóa tài khoản"
+      };
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -131,9 +233,12 @@ export const AuthProvider = ({ children }) => {
         guestMode,
         signUpWithEmail,
         signInWithEmail,
+        signInWithGoogle,
         signInAsGuest,
+        signInWithGoogle,
         resetPassword,
         logout,
+        deleteAccount,
       }}
     >
       {children}
