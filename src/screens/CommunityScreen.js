@@ -1,5 +1,5 @@
 // src/screens/CommunityScreen.js
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   StatusBar,
+  AppState,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "../context/UserContext";
@@ -25,6 +26,9 @@ import * as ImagePicker from "expo-image-picker";
 import { Video } from "expo-av";
 import SafeAreaScrollView from "../components/SafeAreaScrollView";
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
+import ViewShot from "react-native-view-shot"; // ✅ THÊM
+import * as Sharing from 'expo-sharing'; // ✅ THÊM
+import * as FileSystem from 'expo-file-system'; // ✅ THÊM
 
 export default function CommunityScreen({ navigation }) {
   const {
@@ -46,7 +50,7 @@ export default function CommunityScreen({ navigation }) {
     loading,
   } = useContext(UserContext);
   const insets = useSafeAreaInsets(); // ✅ THÊM hook này
-
+  const postRefs = useRef({});
   // ✅ Thêm state để quản lý communityPosts local
   const [localPosts, setLocalPosts] = useState([]);
 
@@ -378,27 +382,51 @@ export default function CommunityScreen({ navigation }) {
     ]);
   };
 
+  let isSharing = false;
   // Share post
   const handleSharePost = async (post) => {
     try {
-      const message = `${post.content}\n\n- Chia sẻ từ Green App`;
-
-      const result = await Share.share(
-        {
-          message: message,
-          title: "Chia sẻ bài viết",
-        },
-        {
-          dialogTitle: "Chia sẻ qua",
-        }
-      );
-
-      if (result.action === Share.sharedAction) {
-        await sharePost(post.id);
-        Alert.alert("Thành công", "Đã chia sẻ bài viết!");
-        await loadCommunity();
+      const postRef = postRefs.current[post.id];
+      if (!postRef) {
+        Alert.alert("Lỗi", "Không thể chụp ảnh bài viết");
+        return;
       }
+
+      // Chụp screenshot
+      const uri = await postRef.capture();
+
+      // Kiểm tra nếu hỗ trợ chia sẻ
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert("Lỗi", "Thiết bị không hỗ trợ chia sẻ");
+        return;
+      }
+
+      // Đánh dấu đang chia sẻ
+      isSharing = true;
+
+      // Lắng nghe khi app quay lại
+      const subscription = AppState.addEventListener("change", async (state) => {
+        if (state === "active" && isSharing) {
+          isSharing = false;
+          subscription.remove();
+
+          // Khi quay lại → xem như đã share xong
+          await sharePost(post.id);
+          await loadCommunity();
+
+          Alert.alert("Thành công", "Bạn đã chia sẻ bài viết!");
+        }
+      });
+
+      // Mở hộp thoại chia sẻ
+      await Sharing.shareAsync(uri, {
+        mimeType: "image/png",
+        dialogTitle: "Chia sẻ bài viết",
+      });
+
     } catch (error) {
+      isSharing = false;
       console.error("❌ Lỗi chia sẻ:", error);
       Alert.alert("Lỗi", "Không thể chia sẻ bài viết");
     }
@@ -550,113 +578,127 @@ export default function CommunityScreen({ navigation }) {
           const showAllComments = expandedComments[post.id];
           const comments = post.comments || [];
           const displayComments = showAllComments ? comments : comments.slice(-2);
-
-          // ✅ FIX: Nếu là bài viết của mình, dùng avatar hiện tại từ userProfile
           const avatarUrl = isMyPost ? getCurrentUserAvatar() : (post.author?.photoURL || "");
 
           return (
-            <View key={post.id} style={styles.postCard}>
-              {/* Header */}
-              <View style={styles.postHeader}>
-                <View style={styles.avatarContainer}>
-                  {avatarUrl ? (
-                    <Image
-                      source={{ uri: avatarUrl }}
-                      style={styles.avatarImage}
-                    />
-                  ) : (
-                    <View style={styles.avatarPlaceholder}>
-                      <Text style={styles.avatarText}>
-                        {post.author?.displayName?.[0]?.toUpperCase() || "👤"}
-                      </Text>
-                    </View>
+            // ✅ WRAP toàn bộ post trong ViewShot
+            <ViewShot
+              key={post.id}
+              ref={(ref) => (postRefs.current[post.id] = ref)}
+              options={{
+                format: "png",
+                quality: 0.9,
+                result: 'tmpfile', // Lưu vào file tạm
+              }}
+            >
+              <View style={styles.postCard}>
+                {/* Header */}
+                <View style={styles.postHeader}>
+                  <View style={styles.avatarContainer}>
+                    {avatarUrl ? (
+                      <Image
+                        source={{ uri: avatarUrl }}
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <View style={styles.avatarPlaceholder}>
+                        <Text style={styles.avatarText}>
+                          {post.author?.displayName?.[0]?.toUpperCase() || "👤"}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.postInfo}>
+                    <Text style={styles.userName}>
+                      {isMyPost ? (userProfile?.displayName || post.author?.displayName || "Bạn") : (post.author?.displayName || "Người dùng")}
+                    </Text>
+                    <Text style={styles.postTime}>
+                      {post.timestamp
+                        ? new Date(post.timestamp).toLocaleString("vi-VN")
+                        : "Vừa xong"}
+                    </Text>
+                  </View>
+
+                  {isMyPost && (
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeletePost(post.id)}
+                    >
+                      <Ionicons name="trash-outline" size={22} color="#e53935" />
+                    </TouchableOpacity>
                   )}
                 </View>
-                <View style={styles.postInfo}>
-                  <Text style={styles.userName}>
-                    {isMyPost ? (userProfile?.displayName || post.author?.displayName || "Bạn") : (post.author?.displayName || "Người dùng")}
-                  </Text>
-                  <Text style={styles.postTime}>
-                    {post.timestamp
-                      ? new Date(post.timestamp).toLocaleString("vi-VN")
-                      : "Vừa xong"}
+
+                {/* Content */}
+                <Text style={styles.postContent}>{post.content}</Text>
+
+                {/* Image */}
+                {post.type === "image" && post.image && (
+                  <Image
+                    source={{ uri: post.image }}
+                    style={styles.postMediaImage}
+                    resizeMode="cover"
+                  />
+                )}
+
+                {/* Video */}
+                {post.type === "video" && post.video && (
+                  <Video
+                    source={{ uri: post.video }}
+                    style={styles.postMediaVideo}
+                    useNativeControls
+                    resizeMode="contain"
+                    isLooping
+                  />
+                )}
+
+                {/* Stats */}
+                <View style={styles.postStats}>
+                  <Text style={styles.statText}>
+                    {(post.likes || []).length} lượt thích • {comments.length}{" "}
+                    bình luận • {post.shares || 0} chia sẻ
                   </Text>
                 </View>
 
-                {isMyPost && (
+                {/* Actions */}
+                <View style={styles.postActions}>
                   <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeletePost(post.id)}
+                    style={styles.actionButton}
+                    onPress={() => handleToggleLike(post.id)}
                   >
-                    <Ionicons name="trash-outline" size={22} color="#e53935" />
+                    <Ionicons
+                      name={liked ? "heart" : "heart-outline"}
+                      size={22}
+                      color={liked ? "#FF6B6B" : "#666"}
+                    />
+                    <Text style={[styles.actionText, liked && styles.likedText]}>
+                      Thích
+                    </Text>
                   </TouchableOpacity>
-                )}
+
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => openCommentModal(post)}
+                  >
+                    <Ionicons name="chatbubble-outline" size={22} color="#666" />
+                    <Text style={styles.actionText}>Bình luận</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleSharePost(post)}
+                  >
+                    <Ionicons name="share-social-outline" size={22} color="#666" />
+                    <Text style={styles.actionText}>Chia sẻ</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* ✅ THÊM watermark */}
+                <View style={styles.watermark}>
+                  <Text style={styles.watermarkText}>Chia sẻ từ Green App 🌱</Text>
+                </View>
               </View>
-
-              {/* Content */}
-              <Text style={styles.postContent}>{post.content}</Text>
-
-              {/* Image */}
-              {post.type === "image" && post.image && (
-                <Image
-                  source={{ uri: post.image }}
-                  style={styles.postMediaImage}
-                  resizeMode="cover"
-                />
-              )}
-
-              {/* Video */}
-              {post.type === "video" && post.video && (
-                <Video
-                  source={{ uri: post.video }}
-                  style={styles.postMediaVideo}
-                  useNativeControls
-                  resizeMode="contain"
-                  isLooping
-                />
-              )}
-
-              {/* Stats */}
-              <View style={styles.postStats}>
-                <Text style={styles.statText}>
-                  {(post.likes || []).length} lượt thích • {comments.length}{" "}
-                  bình luận • {post.shares || 0} chia sẻ
-                </Text>
-              </View>
-
-              {/* Actions */}
-              <View style={styles.postActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleToggleLike(post.id)}
-                >
-                  <Ionicons
-                    name={liked ? "heart" : "heart-outline"}
-                    size={22}
-                    color={liked ? "#FF6B6B" : "#666"}
-                  />
-                  <Text style={[styles.actionText, liked && styles.likedText]}>
-                    Thích
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => openCommentModal(post)}
-                >
-                  <Ionicons name="chatbubble-outline" size={22} color="#666" />
-                  <Text style={styles.actionText}>Bình luận</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleSharePost(post)}
-                >
-                  <Ionicons name="share-social-outline" size={22} color="#666" />
-                  <Text style={styles.actionText}>Chia sẻ</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            </ViewShot>
           );
         })
       )}
@@ -1292,6 +1334,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+
   },
   backButton: {
     width: 40,
@@ -1440,4 +1483,17 @@ const styles = StyleSheet.create({
   commentInputModal: { flex: 1, backgroundColor: "#f5f5f5", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, maxHeight: 100 },
   sendButtonModal: { padding: 8 },
   sendButtonDisabled: { opacity: 0.4 },
+  watermark: {
+    paddingTop: 8,
+    paddingBottom: 4,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    marginTop: 8,
+  },
+  watermarkText: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
+  },
 });

@@ -28,12 +28,6 @@ export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const { user, guestMode } = useContext(AuthContext);
-
-  // ==================== CLOUDINARY CONFIG ====================
-  // 🔥 FREE 25GB/month - Không cần API key
-  const CLOUDINARY_CLOUD_NAME = "dlydwc9t3"; // ⚠️ THAY BẰNG CLOUD NAME CỦA BẠN
-  const CLOUDINARY_UPLOAD_PRESET = "green_hanoi"; // Tạo unsigned preset
-
   // ==================== STATE ====================
   const [userProfile, setUserProfile] = useState({
     displayName: "",
