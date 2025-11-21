@@ -746,11 +746,6 @@ export default function MapScreen({ navigation }) {
                     </Text>
                   </View>
                 )}
-
-                <TouchableOpacity style={styles.directionButton}>
-                  <Ionicons name="navigate" size={20} color="#fff" />
-                  <Text style={styles.directionButtonText}>Chỉ đường</Text>
-                </TouchableOpacity>
               </ScrollView>
             )}
           </View>
