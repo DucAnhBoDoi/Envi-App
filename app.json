@@ -2,7 +2,7 @@
   "expo": {
     "name": "envi-app",
     "slug": "envi-app",
-    "owner": "sowsd1",
+    "owner": "ducanhbodoi7204",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -38,7 +38,7 @@
           "icon": "./assets/icon.png",
           "color": "#2e7d32",
           "sounds": [
-            "./assets/notification-sound.mp3"
+            "./assets/sounds/bell.mp3"
           ]
         }
       ]
