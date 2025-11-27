@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ THÊM
 
 export default function LearningScreen({ navigation }) {
     const insets = useSafeAreaInsets(); // ✅ THÊM hook này
-    const { guestMode } = useContext(AuthContext);
+    const { user, guestMode } = useContext(AuthContext);
     const [activeTab, setActiveTab] = useState("library");
     const [showQuiz, setShowQuiz] = useState(false);
     const [selectedQuizId, setSelectedQuizId] = useState(null);
@@ -36,28 +36,37 @@ export default function LearningScreen({ navigation }) {
     // Load dữ liệu khi khởi động
     useEffect(() => {
         loadData();
-    }, [guestMode]);
+    }, [guestMode, user?.uid]); // Phải thêm user.uid để reload khi đổi tài khoản
 
     // Chỉ lưu completedTips khi thay đổi
     useEffect(() => {
-        if (!isLoading) {
-            const key = guestMode ? "guest_learningCompletedTips" : "learningCompletedTips";
+        if (!isLoading && completedTips.length > 0) {
+            const key = getCompletedTipsKey();
             AsyncStorage.setItem(key, JSON.stringify(completedTips)).catch(err =>
                 console.error("Lỗi lưu tips:", err)
             );
         }
-    }, [completedTips, isLoading, guestMode]); // THÊM guestMode VÀO ĐÂY!!!
+    }, [completedTips, isLoading, user?.uid, guestMode]);
 
     const loadData = async () => {
         try {
-            const keyQuiz = guestMode ? "guest_learningQuizHistory" : "learningQuizHistory";
-            const keyTips = guestMode ? "guest_learningCompletedTips" : "learningCompletedTips";
+            const quizKey = getQuizHistoryKey();
+            const tipsKey = getCompletedTipsKey();
 
-            const savedQuizHistory = await AsyncStorage.getItem(keyQuiz);
-            const savedCompletedTips = await AsyncStorage.getItem(keyTips);
+            const savedQuizHistory = await AsyncStorage.getItem(quizKey);
+            const savedCompletedTips = await AsyncStorage.getItem(tipsKey);
 
-            if (savedQuizHistory) setQuizHistory(JSON.parse(savedQuizHistory));
-            if (savedCompletedTips) setCompletedTips(JSON.parse(savedCompletedTips));
+            if (savedQuizHistory) {
+                setQuizHistory(JSON.parse(savedQuizHistory));
+            } else {
+                setQuizHistory([]);
+            }
+
+            if (savedCompletedTips) {
+                setCompletedTips(JSON.parse(savedCompletedTips));
+            } else {
+                setCompletedTips([]);
+            }
 
             setIsLoading(false);
         } catch (error) {
@@ -66,13 +75,34 @@ export default function LearningScreen({ navigation }) {
         }
     };
 
+    // Thay đổi toàn bộ cách lấy key lưu trữ Quiz History
+    const getQuizHistoryKey = () => {
+        if (guestMode) {
+            return "guest_learningQuizHistory";
+        }
+        // Với tài khoản thật: dùng uid để tránh trùng
+        if (user?.uid) {
+            return `learningQuizHistory_${user.uid}`;
+        }
+        return "learningQuizHistory"; // fallback (không nên xảy ra)
+    };
+
+    const getCompletedTipsKey = () => {
+        if (guestMode) {
+            return "guest_learningCompletedTips";
+        }
+        if (user?.uid) {
+            return `learningCompletedTips_${user.uid}`;
+        }
+        return "learningCompletedTips";
+    };
+
     // LƯU LỊCH SỬ NGAY KHI HOÀN THÀNH
     const saveQuizRecord = async (record) => {
         const updatedHistory = [record, ...quizHistory];
         setQuizHistory(updatedHistory);
 
-        // KEY RIÊNG: guest thì guest_..., user thật thì learning...
-        const key = guestMode ? "guest_learningQuizHistory" : "learningQuizHistory";
+        const key = getQuizHistoryKey(); // Dùng key theo user
         await AsyncStorage.setItem(key, JSON.stringify(updatedHistory));
     };
 
